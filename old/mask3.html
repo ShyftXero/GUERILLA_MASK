@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konva Projection Mapper</title>
+    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+    <style>
+        /* Keep all your existing styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #controls {
+            width: 300px;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+            flex-shrink: 0;
+        }
+
+        #controls.hidden {
+            display: none;
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-success {
+            background: #16a34a;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-warning {
+            background: #d97706;
+        }
+
+        .btn-warning:hover {
+            background: #b45309;
+        }
+
+        h2 {
+            margin: 20px 0 10px 0;
+            font-size: 18px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .divider {
+            height: 1px;
+            background: #333;
+            margin: 20px 0;
+        }
+
+        .media-item, .layer-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #2a2a2a;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-item:hover, .layer-item:hover {
+            background: #3a3a3a;
+        }
+
+        .media-item.selected, .layer-item.selected {
+            background: #2563eb;
+        }
+
+        .layer-item button {
+            padding: 5px 10px;
+            margin-left: 10px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .layer-item button:hover {
+            background: #b91c1c;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2563eb;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h1>🎭 Projection Mapper</h1>
+
+        <h2>Media Library</h2>
+        <input type="file" id="file-input" accept="image/*,video/*" multiple>
+        <button class="btn" onclick="document.getElementById('file-input').click()">
+            📁 Upload Media
+        </button>
+        <div id="media-list"></div>
+
+        <div class="divider"></div>
+
+        <h2>Layer Type</h2>
+        <button class="btn btn-success" onclick="setLayerType('projection')">
+            🎬 Projection Layer
+        </button>
+        <button class="btn btn-warning" onclick="setLayerType('mask')">
+            🎭 Mask Layer
+        </button>
+
+        <div class="divider"></div>
+
+        <h2>Drawing</h2>
+        <button class="btn btn-success" id="start-layer-btn" onclick="startNewLayer()">
+            ➕ Start New Layer
+        </button>
+
+        <div class="divider"></div>
+
+        <h2>Layers</h2>
+        <div id="layer-list"></div>
+        <button class="btn btn-danger" onclick="clearAllLayers()">
+            🗑️ Clear All Layers
+        </button>
+
+        <div class="divider"></div>
+
+        <h2>View</h2>
+        <button class="btn" onclick="toggleHandles()">
+            👁️ Toggle Handles
+        </button>
+        <button class="btn" onclick="toggleControls()">
+            📋 Toggle Controls
+        </button>
+        <button class="btn btn-warning" onclick="toggleVideos()">
+            ⏯️ Play/Pause All Videos
+        </button>
+
+        <div class="divider"></div>
+
+        <h2>Project</h2>
+        <button class="btn btn-success" onclick="saveProject()">
+            💾 Save Project
+        </button>
+        <button class="btn btn-warning" onclick="document.getElementById('load-input').click()">
+            📂 Load Project
+        </button>
+        <input type="file" id="load-input" accept=".json" style="display:none" onchange="loadProject(event)">
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // State
+        let uploadedFiles = [];
+        let selectedMedia = null;
+        let layers = [];
+        let activeLayerId = null;
+        let layerType = 'projection';
+        let handlesVisible = true;
+        let videosPlaying = true;
+        let stage, mainLayer, handleLayer, anim;
+
+        // Initialize Konva
+        function initKonva() {
+            const container = document.getElementById('canvas-container');
+            
+            stage = new Konva.Stage({
+                container: 'canvas-container',
+                width: container.clientWidth,
+                height: container.clientHeight,
+            });
+
+            mainLayer = new Konva.Layer();
+            handleLayer = new Konva.Layer();
+            
+            stage.add(mainLayer);
+            stage.add(handleLayer);
+
+            // Animation loop for videos and GIFs
+            anim = new Konva.Animation(() => {
+                // Animation frame - layers will update themselves
+            }, mainLayer);
+            anim.start();
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                stage.width(container.clientWidth);
+                stage.height(container.clientHeight);
+                redrawAllLayers();
+            });
+        }
+
+        // Media handling
+        function handleFileUpload(event) {
+            const files = Array.from(event.target.files);
+            
+            if (files.length === 0) return;
+            
+            showNotification(`Uploading ${files.length} file(s)...`);
+            
+            files.forEach(file => {
+                const isGif = file.name.toLowerCase().endsWith('.gif');
+                const isVideo = file.type.startsWith('video/');
+                
+                if (isGif || !isVideo) {
+                    // For GIFs and images, use FileReader to get data URL
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const mediaItem = {
+                            id: Date.now() + Math.random(),
+                            name: file.name,
+                            dataUrl: e.target.result,
+                            type: isGif ? 'gif' : (isVideo ? 'video' : 'image')
+                        };
+                        
+                        uploadedFiles.push(mediaItem);
+                        updateMediaList();
+                        showNotification(`Uploaded: ${file.name}`);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    // For videos, create object URL
+                    const mediaItem = {
+                        id: Date.now() + Math.random(),
+                        name: file.name,
+                        dataUrl: URL.createObjectURL(file),
+                        type: 'video'
+                    };
+                    
+                    uploadedFiles.push(mediaItem);
+                    updateMediaList();
+                    showNotification(`Uploaded: ${file.name}`);
+                }
+            });
+            
+            event.target.value = '';
+        }
+
+
+        function updateMediaList() {
+            const list = document.getElementById('media-list');
+            if (uploadedFiles.length === 0) {
+                list.innerHTML = '<div style="padding: 10px; color: #666;">No media uploaded</div>';
+                return;
+            }
+            
+            list.innerHTML = uploadedFiles.map(media => {
+                let icon = '🖼️';
+                if (media.type === 'video') icon = '🎥';
+                if (media.type === 'gif') icon = '🎞️';
+                
+                return `
+                    <div class="media-item ${selectedMedia?.id === media.id ? 'selected' : ''}" 
+                        onclick="selectMedia('${media.id}')">
+                        <span>${icon} ${media.name}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectMedia(id) {
+            // Convert id to number for comparison since it might be passed as string
+            selectedMedia = uploadedFiles.find(m => m.id == id);
+            updateMediaList();
+            if (selectedMedia) {
+                showNotification(`Selected: ${selectedMedia.name}`);
+            }
+        }
+
+        // Layer management
+        function setLayerType(type) {
+            layerType = type;
+            showNotification(`Layer type: ${type}`);
+        }
+
+        function startNewLayer() {
+            if (layerType === 'projection' && !selectedMedia) {
+                showNotification('Please select media first!');
+                return;
+            }
+
+            const layer = {
+                id: Date.now(),
+                type: layerType,
+                points: [],
+                konvaGroup: new Konva.Group(),
+                mediaElement: null,
+                mediaCanvas: null,
+                giflerInstance: null
+            };
+
+            mainLayer.add(layer.konvaGroup);
+            layers.push(layer);
+            activeLayerId = layer.id;
+
+            if (layerType === 'projection') {
+                loadMediaForLayer(layer);
+            }
+
+            showNotification(`Started new ${layerType} layer. Click 4 corners.`);
+            updateLayerList();
+        }
+
+        function loadMediaForLayer(layer) {
+            if (!selectedMedia) return;
+
+            const isGif = selectedMedia.type === 'gif' || selectedMedia.name.toLowerCase().endsWith('.gif');
+            
+            if (isGif) {
+                // Handle GIF with gifler
+                const canvas = document.createElement('canvas');
+                layer.mediaCanvas = canvas;
+                
+                gifler(selectedMedia.dataUrl).frames(canvas, (ctx, frame) => {
+                    canvas.width = frame.width;
+                    canvas.height = frame.height;
+                    ctx.drawImage(frame.buffer, 0, 0);
+                    // Don't call batchDraw here, the animation loop handles it
+                });
+
+                const konvaImage = new Konva.Image({
+                    image: canvas,
+                    listening: false
+                });
+                
+                layer.mediaElement = konvaImage;
+                layer.konvaGroup.add(konvaImage);
+                
+                showNotification('GIF loaded! Click 4 corners.');
+                
+            } else if (selectedMedia.type === 'video') {
+                // Handle video
+                const video = document.createElement('video');
+                video.src = selectedMedia.dataUrl;
+                video.loop = true;
+                video.muted = true;
+                video.crossOrigin = 'anonymous';
+                video.playsInline = true;
+                
+                video.addEventListener('loadeddata', () => {
+                    const konvaImage = new Konva.Image({
+                        image: video,
+                        listening: false
+                    });
+                    
+                    layer.mediaElement = konvaImage;
+                    layer.konvaGroup.add(konvaImage);
+                    
+                    if (videosPlaying) {
+                        video.play().catch(err => {
+                            console.warn('Video autoplay failed:', err);
+                            showNotification('Click to play video');
+                        });
+                    }
+                    
+                    showNotification('Video loaded! Click 4 corners.');
+                });
+                
+                video.addEventListener('error', (e) => {
+                    console.error('Video load error:', e);
+                    showNotification('Error loading video!');
+                });
+                
+                video.load();
+                
+            } else {
+                // Handle static image
+                const img = new Image();
+                img.onload = () => {
+                    const konvaImage = new Konva.Image({
+                        image: img,
+                        listening: false
+                    });
+                    
+                    layer.mediaElement = konvaImage;
+                    layer.konvaGroup.add(konvaImage);
+                    
+                    showNotification('Image loaded! Click 4 corners.');
+                };
+                img.onerror = (e) => {
+                    console.error('Image load error:', e);
+                    showNotification('Error loading image!');
+                };
+                img.src = selectedMedia.dataUrl;
+            }
+        }
+
+        function updateLayer(layer) {
+            // Clear previous handles
+            const oldHandles = layer.konvaGroup.find('.handle, .handle-line');
+            oldHandles.forEach(h => h.destroy());
+            
+            if (layer.type === 'projection' && layer.points.length === 4) {
+                if (layer.mediaElement) {
+                    const points = layer.points.map(p => ({
+                        x: (p.x / 100) * stage.width(),
+                        y: (p.y / 100) * stage.height()
+                    }));
+                    
+                    applyPerspectiveTransform(layer.mediaElement, points);
+                    layer.mediaElement.show();
+                }
+            } else if (layer.type === 'mask' && layer.points.length >= 3) {
+                // Remove old polygon
+                const oldPoly = layer.konvaGroup.findOne('Line');
+                if (oldPoly) oldPoly.destroy();
+                
+                const points = layer.points.flatMap(p => [
+                    (p.x / 100) * stage.width(),
+                    (p.y / 100) * stage.height()
+                ]);
+                
+                const poly = new Konva.Line({
+                    points: points,
+                    fill: 'black',
+                    closed: true,
+                    listening: false
+                });
+                
+                layer.konvaGroup.add(poly);
+                poly.moveToBottom();
+            }
+            
+            if (handlesVisible && layer.points.length > 0) {
+                drawHandles(layer);
+            }
+            
+            mainLayer.batchDraw();
+        }
+
+        function applyPerspectiveTransform(imageNode, dstPoints) {
+            const img = imageNode.image();
+            const srcWidth = img.naturalWidth || img.videoWidth || img.width || img.canvas?.width;
+            const srcHeight = img.naturalHeight || img.videoHeight || img.height || img.canvas?.height;
+            
+            if (!srcWidth || !srcHeight) return;
+            
+            imageNode.sceneFunc(function(context, shape) {
+                context.save();
+                
+                // Create clipping path
+                context.beginPath();
+                context.moveTo(dstPoints[0].x, dstPoints[0].y);
+                context.lineTo(dstPoints[1].x, dstPoints[1].y);
+                context.lineTo(dstPoints[2].x, dstPoints[2].y);
+                context.lineTo(dstPoints[3].x, dstPoints[3].y);
+                context.closePath();
+                context.clip();
+                
+                // Subdivide for better perspective
+                const subdivisions = 8;
+                for (let i = 0; i < subdivisions; i++) {
+                    for (let j = 0; j < subdivisions; j++) {
+                        const u0 = i / subdivisions;
+                        const u1 = (i + 1) / subdivisions;
+                        const v0 = j / subdivisions;
+                        const v1 = (j + 1) / subdivisions;
+                        
+                        // Source coordinates
+                        const sx0 = u0 * srcWidth;
+                        const sx1 = u1 * srcWidth;
+                        const sy0 = v0 * srcHeight;
+                        const sy1 = v1 * srcHeight;
+                        
+                        // Destination coordinates (bilinear interpolation)
+                        const dx0 = bilinearInterp(dstPoints, u0, v0).x;
+                        const dy0 = bilinearInterp(dstPoints, u0, v0).y;
+                        const dx1 = bilinearInterp(dstPoints, u1, v0).x;
+                        const dy1 = bilinearInterp(dstPoints, u1, v0).y;
+                        const dx2 = bilinearInterp(dstPoints, u1, v1).x;
+                        const dy2 = bilinearInterp(dstPoints, u1, v1).y;
+                        const dx3 = bilinearInterp(dstPoints, u0, v1).x;
+                        const dy3 = bilinearInterp(dstPoints, u0, v1).y;
+                        
+                        // Draw two triangles for this subdivision
+                        drawTriangle(context, img,
+                            sx0, sy0, sx1, sy0, sx1, sy1,
+                            dx0, dy0, dx1, dy1, dx2, dy2
+                        );
+                        drawTriangle(context, img,
+                            sx0, sy0, sx1, sy1, sx0, sy1,
+                            dx0, dy0, dx2, dy2, dx3, dy3
+                        );
+                    }
+                }
+                
+                context.restore();
+            });
+            
+            imageNode.hitFunc(function(context, shape) {
+                context.beginPath();
+                context.moveTo(dstPoints[0].x, dstPoints[0].y);
+                context.lineTo(dstPoints[1].x, dstPoints[1].y);
+                context.lineTo(dstPoints[2].x, dstPoints[2].y);
+                context.lineTo(dstPoints[3].x, dstPoints[3].y);
+                context.closePath();
+                context.fillStrokeShape(shape);
+            });
+        }
+
+        function bilinearInterp(points, u, v) {
+            // Bilinear interpolation between 4 corner points
+            const x = (1 - u) * (1 - v) * points[0].x +
+                      u * (1 - v) * points[1].x +
+                      u * v * points[2].x +
+                      (1 - u) * v * points[3].x;
+            
+            const y = (1 - u) * (1 - v) * points[0].y +
+                      u * (1 - v) * points[1].y +
+                      u * v * points[2].y +
+                      (1 - u) * v * points[3].y;
+            
+            return { x, y };
+        }
+
+        function drawTriangle(ctx, img, sx0, sy0, sx1, sy1, sx2, sy2, dx0, dy0, dx1, dy1, dx2, dy2) {
+            ctx.save();
+            
+            // Clip to destination triangle
+            ctx.beginPath();
+            ctx.moveTo(dx0, dy0);
+            ctx.lineTo(dx1, dy1);
+            ctx.lineTo(dx2, dy2);
+            ctx.closePath();
+            ctx.clip();
+            
+            // Calculate affine transform
+            const denom = sx0 * (sy1 - sy2) - sx1 * sy0 + sx2 * sy0 + sx1 * sy2 - sx2 * sy1;
+            if (Math.abs(denom) < 0.0001) {
+                ctx.restore();
+                return;
+            }
+            
+            const m11 = -(sy0 * (dx2 - dx1) - sy1 * dx2 + sy2 * dx1 + (sy1 - sy2) * dx0) / denom;
+            const m12 = (sy1 * dy2 + sy0 * (dy1 - dy2) - sy2 * dy1 + (sy2 - sy1) * dy0) / denom;
+            const m21 = (sx0 * (dx2 - dx1) - sx1 * dx2 + sx2 * dx1 + (sx1 - sx2) * dx0) / denom;
+            const m22 = -(sx1 * dy2 + sx0 * (dy1 - dy2) - sx2 * dy1 + (sx2 - sx1) * dy0) / denom;
+            const dx = (sx0 * (sy2 * dx1 - sy1 * dx2) + sy0 * (sx1 * dx2 - sx2 * dx1) + (sx2 * sy1 - sx1 * sy2) * dx0) / denom;
+            const dy = (sx0 * (sy2 * dy1 - sy1 * dy2) + sy0 * (sx1 * dy2 - sx2 * dy1) + (sx2 * sy1 - sx1 * sy2) * dy0) / denom;
+            
+            ctx.transform(m11, m12, m21, m22, dx, dy);
+            ctx.drawImage(img, 0, 0);
+            
+            ctx.restore();
+        }
+
+        function drawHandles(layer) {
+            // Draw lines connecting points
+            if (layer.points.length > 1) {
+                const allPoints = [...layer.points];
+                if (layer.type === 'projection' || (layer.type === 'mask' && layer.points.length >= 3)) {
+                    allPoints.push(layer.points[0]); // Close the shape
+                }
+                
+                const linePoints = allPoints.flatMap(p => [
+                    (p.x / 100) * stage.width(),
+                    (p.y / 100) * stage.height()
+                ]);
+                
+                const line = new Konva.Line({
+                    points: linePoints,
+                    stroke: '#00ff00',
+                    strokeWidth: 2,
+                    name: 'handle-line',
+                    listening: false
+                });
+                
+                layer.konvaGroup.add(line);
+            }
+            
+            // Draw handle circles
+            layer.points.forEach((p, index) => {
+                const x = (p.x / 100) * stage.width();
+                const y = (p.y / 100) * stage.height();
+                
+                const circle = new Konva.Circle({
+                    x: x,
+                    y: y,
+                    radius: 8,
+                    fill: '#00ff00',
+                    stroke: '#ffffff',
+                    strokeWidth: 2,
+                    draggable: true,
+                    name: 'handle'
+                });
+                
+                circle.on('dragmove', function() {
+                    const newX = (this.x() / stage.width()) * 100;
+                    const newY = (this.y() / stage.height()) * 100;
+                    layer.points[index] = { x: newX, y: newY };
+                    updateLayer(layer);
+                });
+                
+                layer.konvaGroup.add(circle);
+            });
+        }
+
+        function redrawAllLayers() {
+            layers.forEach(layer => {
+                updateLayer(layer);
+            });
+        }
+
+        // Stage click handler for adding points
+        stage.on('click', (e) => {
+            if (e.target !== stage) return; // Clicked on a shape, not the stage
+            
+            const activeLayer = layers.find(l => l.id === activeLayerId);
+            if (!activeLayer) return;
+            
+            const maxPoints = activeLayer.type === 'projection' ? 4 : Infinity;
+            if (activeLayer.points.length >= maxPoints) {
+                if (activeLayer.type === 'projection') {
+                    showNotification('Layer complete! (4 points)');
+                    activeLayerId = null;
+                }
+                return;
+            }
+            
+            const pos = stage.getPointerPosition();
+            const x = (pos.x / stage.width()) * 100;
+            const y = (pos.y / stage.height()) * 100;
+            
+            activeLayer.points.push({ x, y });
+            updateLayer(activeLayer);
+            
+            if (activeLayer.type === 'projection' && activeLayer.points.length === 4) {
+                showNotification('Layer complete!');
+                activeLayerId = null;
+            } else if (activeLayer.type === 'mask' && activeLayer.points.length === 1) {
+                showNotification('Click more points. Press Escape when done.');
+            }
+        });
+
+        // Escape key to finish mask
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const activeLayer = layers.find(l => l.id === activeLayerId);
+                if (activeLayer && activeLayer.type === 'mask' && activeLayer.points.length >= 3) {
+                    showNotification('Mask complete!');
+                    activeLayerId = null;
+                    updateLayer(activeLayer);
+                }
+            }
+        });
+
+        function updateLayerList() {
+            const list = document.getElementById('layer-list');
+            list.innerHTML = layers.map(layer => `
+                <div class="layer-item ${layer.id === activeLayerId ? 'selected' : ''}">
+                    <span>${layer.type === 'projection' ? '🎬' : '🎭'} ${layer.type.charAt(0).toUpperCase() + layer.type.slice(1)} ${layer.id.toString().slice(-4)} (${layer.points.length} pts)</span>
+                    <button onclick="deleteLayer(${layer.id})">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        function deleteLayer(id) {
+            const layer = layers.find(l => l.id === id);
+            if (layer) {
+                layer.konvaGroup.destroy();
+                layers = layers.filter(l => l.id !== id);
+                if (activeLayerId === id) {
+                    activeLayerId = null;
+                }
+                updateLayerList();
+                mainLayer.batchDraw();
+            }
+        }
+
+        function clearAllLayers() {
+            if (!confirm('Clear all layers?')) return;
+            
+            layers.forEach(layer => layer.konvaGroup.destroy());
+            layers = [];
+            activeLayerId = null;
+            updateLayerList();
+            mainLayer.batchDraw();
+        }
+
+        function toggleHandles() {
+            handlesVisible = !handlesVisible;
+            redrawAllLayers();
+            showNotification(`Handles ${handlesVisible ? 'visible' : 'hidden'}`);
+        }
+
+        function toggleControls() {
+            const controls = document.getElementById('controls');
+            controls.classList.toggle('hidden');
+        }
+
+        function toggleVideos() {
+            videosPlaying = !videosPlaying;
+            
+            layers.forEach(layer => {
+                const img = layer.mediaElement?.image();
+                if (img && img.tagName === 'VIDEO') {
+                    if (videosPlaying) {
+                        img.play();
+                    } else {
+                        img.pause();
+                    }
+                }
+            });
+            
+            showNotification(`Videos ${videosPlaying ? 'playing' : 'paused'}`);
+        }
+
+        function saveProject() {
+            const project = {
+                layers: layers.map(l => ({
+                    id: l.id,
+                    type: l.type,
+                    points: l.points
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'projection-map.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showNotification('Project saved!');
+        }
+
+        function loadProject(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const project = JSON.parse(e.target.result);
+                    
+                    clearAllLayers();
+                    
+                    project.layers.forEach(layerData => {
+                        const layer = {
+                            id: layerData.id,
+                            type: layerData.type,
+                            points: layerData.points,
+                            konvaGroup: new Konva.Group(),
+                            mediaElement: null,
+                            mediaCanvas: null,
+                            giflerInstance: null
+                        };
+                        
+                        mainLayer.add(layer.konvaGroup);
+                        layers.push(layer);
+                        
+                        if (layer.type === 'projection') {
+                            showNotification('Please re-upload media files');
+                        }
+                        
+                        updateLayer(layer);
+                    });
+                    
+                    updateLayerList();
+                    showNotification('Project loaded!');
+                } catch (error) {
+                    console.error('Error loading project:', error);
+                    showNotification('Error loading project!');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function showNotification(message) {
+            const existing = document.getElementById('notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #2563eb;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transition = 'opacity 0.3s';
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Initialize
+        document.getElementById('file-input').addEventListener('change', handleFileUpload);
+        initKonva();
+        updateMediaList();
+        updateLayerList();
+    </script>
+</body>
+</html>

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Projection Mapper — Single File</title>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#1a1a1a;
+    --text:#e5e7eb;
+    --muted:#9ca3af;
+    --blue:#2563eb;
+    --orange:#d97706;
+    --red:#ef4444;
+    --line:#334155;
+    --handle:#fbbf24;
+    --handle-first:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+  .app{display:flex;height:100%;overflow:hidden}
+
+  /* Sidebar */
+  .sidebar{
+    width:300px;min-width:300px;max-width:300px;background:var(--panel);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;gap:10px;
+    padding:12px 12px 16px;transition:transform .25s ease;
+  }
+  .sidebar.hidden{transform:translateX(-100%)}
+  h3{margin:8px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#cbd5e1}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    background:var(--blue);color:white;border:0;border-radius:8px;padding:8px 10px;
+    font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{filter:brightness(1.1)}
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:#374151}
+  .btn.orange{background:var(--orange)}
+  .btn.red{background:var(--red)}
+  .btn.small{padding:4px 8px;font-size:12px;border-radius:6px}
+  .btn.icon{padding:6px 8px}
+  .badge{font-size:11px;padding:2px 6px;border-radius:999px;background:#111827;color:#d1d5db;border:1px solid #374151}
+  input[type="file"]{display:none}
+  .upload{display:flex;align-items:center;gap:8px}
+  .library, .layers{background:#0b0d12;border:1px solid #0f172a;border-radius:10px;padding:8px;max-height:22vh;overflow:auto}
+  .library::-webkit-scrollbar, .layers::-webkit-scrollbar{width:8px}
+  .library::-webkit-scrollbar-thumb, .layers::-webkit-scrollbar-thumb{background:#1f2937;border-radius:10px}
+  .media-item, .layer-item{
+    display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;border:1px solid transparent;
+    background:#0f1520;transition:.15s;cursor:pointer;margin-bottom:6px;
+  }
+  .media-item:hover, .layer-item:hover{border-color:#223045;background:#0c121d}
+  .media-item.active, .layer-item.active{border-color:var(--blue);box-shadow:inset 0 0 0 1px rgba(37,99,235,.4)}
+  .pill{font-size:10px;padding:2px 6px;border-radius:999px;border:1px solid #24324a;background:#0a1220;color:#cfe0ff}
+  .pill.orange{border-color:#5a3a08;background:#1a1205;color:#ffd9a4}
+  .controls{display:flex;gap:6px;margin-left:auto}
+  .line{height:1px;background:#111827;margin:8px 0}
+  .kv{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0}
+  .muted{color:var(--muted)}
+
+  /* Main area */
+  .main{position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .topbar{
+    height:36px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);background:#0b0d12;
+  }
+  .stage{position:relative;flex:1;background:black;overflow:hidden}
+  canvas, svg.overlay{
+    position:absolute;left:0;top:0;width:100%;height:100%;display:block;
+  }
+  svg.overlay{pointer-events:auto}
+
+  /* Handles */
+  .handle{fill:var(--handle);stroke:#111;stroke-width:.6;cursor:grab}
+  .handle.first{fill:var(--handle-first)}
+  .handle.dragging{cursor:grabbing}
+  .edge{stroke:#93c5fd;stroke-width:.5;opacity:.9}
+  .edge.mask{stroke:#fdba74}
+  .index-label{font-size:3px;fill:#fff;paint-order:stroke;stroke:#000;stroke-width:.3}
+  .ghost{stroke-dasharray:1.2 1.2}
+
+  .hud{
+    position:absolute;right:10px;bottom:10px;background:#0b0d12cc;border:1px solid #0f172a;border-radius:8px;
+    padding:6px 8px;font-size:12px;color:#cbd5e1
+  }
+  .kbd{background:#0f172a;border:1px solid #1f2937;padding:1px 6px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:11px}
+  .spacer{flex:1}
+  .notice{font-size:12px;color:#cbd5e1;background:#0b0d12;border:1px dashed #374151;padding:8px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <span class="badge">Projection Mapper</span>
+      </div>
+      <button id="toggleSidebarBtn" class="btn small secondary" title="Toggle controls (C)">Hide</button>
+    </div>
+
+    <h3>Media Library</h3>
+    <div class="upload row">
+      <label class="btn icon">
+        📥 Upload
+        <input id="fileInput" type="file" accept="image/*,video/*,.gif" multiple />
+      </label>
+      <span class="muted">Images, GIFs, Videos</span>
+    </div>
+    <div id="library" class="library"></div>
+
+    <div class="line"></div>
+
+    <h3>Layer Type</h3>
+    <div class="row">
+      <button id="selectProjection" class="btn small">Projection</button>
+      <button id="selectMask" class="btn small orange">Mask</button>
+      <span class="spacer"></span>
+      <button id="newLayerBtn" class="btn">+ New Layer</button>
+    </div>
+    <div class="notice">
+      Click canvas to add points.
+      <div class="muted" style="margin-top:4px">Projection: 4 points (clockwise). Mask: 3+ points, then press “Complete Mask”.</div>
+    </div>
+
+    <h3>Layers</h3>
+    <div id="layers" class="layers"></div>
+    <div class="row">
+      <button id="completeMaskBtn" class="btn small orange" title="Complete current mask">Complete Mask</button>
+      <button id="clearAllBtn" class="btn small red">Clear All Layers</button>
+    </div>
+
+    <div class="line"></div>
+
+    <h3>View & Playback</h3>
+    <div class="row">
+      <button id="toggleHandlesBtn" class="btn small secondary" title="H">Toggle Handles</button>
+      <button id="playPauseAllBtn" class="btn small secondary" title="SPACE">Play/Pause All</button>
+    </div>
+
+    <div class="line"></div>
+
+    <h3>Project</h3>
+    <div class="row">
+      <button id="saveProjectBtn" class="btn">💾 Save Project</button>
+      <label class="btn secondary">
+        📂 Load
+        <input id="loadProjectInput" type="file" accept="application/json" />
+      </label>
+    </div>
+    <div class="kv"><span class="muted">Version</span><span class="badge">v1.0.1</span></div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <div class="muted">Shortcuts:</div>
+      <span class="kbd">H</span> Handles
+      <span class="kbd">C</span> Controls
+      <span class="kbd">Space</span> Play/Pause
+      <span class="kbd">Esc</span> Cancel Draw
+      <span class="kbd">Delete</span> Delete Layer
+      <div class="spacer"></div>
+      <span class="muted">Canvas: <span id="canvasSize">0×0</span></span>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="canvas"></canvas>
+      <!-- SVG overlay in percentage space -->
+      <svg id="overlay" class="overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+      <div class="hud" id="hud">
+        <div><b>Status:</b> <span id="statusText">Idle</span></div>
+        <div><b>Active Layer:</b> <span id="activeInfo">None</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ==============================
+   Global State
+================================*/
+let uploadedFiles = []; // {id,name,type,kind:'image'|'video'|'gif', url, base64?, img?, video?, gifCanvas?, gifAnimator?}
+let layers = [];        // {id,type:'projection'|'mask', name, points:[{x,y}], mediaId?, playing?, createdAt}
+let activeLayerId = null;
+let isDrawing = false;
+let layerType = 'projection';
+let handlesVisible = true;
+let controlsVisible = true;
+let videosPlaying = true;
+let mouseDrag = null; // {layerId, idx}
+let selectedMediaId = null;
+
+const SUBDIV = 10; // 10x10 subdivision
+
+
+
+/* ==============================
+   Elements
+================================*/
+const els = {
+  sidebar: document.getElementById('sidebar'),
+  fileInput: document.getElementById('fileInput'),
+  library: document.getElementById('library'),
+  layers: document.getElementById('layers'),
+  canvas: document.getElementById('canvas'),
+  overlay: document.getElementById('overlay'),
+  stage: document.getElementById('stage'),
+  canvasSize: document.getElementById('canvasSize'),
+  statusText: document.getElementById('statusText'),
+  activeInfo: document.getElementById('activeInfo'),
+  toggleHandlesBtn: document.getElementById('toggleHandlesBtn'),
+  playPauseAllBtn: document.getElementById('playPauseAllBtn'),
+  saveProjectBtn: document.getElementById('saveProjectBtn'),
+  loadProjectInput: document.getElementById('loadProjectInput'),
+  newLayerBtn: document.getElementById('newLayerBtn'),
+  selectProjection: document.getElementById('selectProjection'),
+  selectMask: document.getElementById('selectMask'),
+  completeMaskBtn: document.getElementById('completeMaskBtn'),
+  clearAllBtn: document.getElementById('clearAllBtn'),
+  toggleSidebarBtn: document.getElementById('toggleSidebarBtn'),
+  topbar: document.querySelector('.topbar'),
+};
+
+const stageResizeObserver = new ResizeObserver(() => {
+  resizeCanvas();
+});
+stageResizeObserver.observe(els.stage);
+
+/* ==============================
+   Helpers
+================================*/
+const uid = () => Math.random().toString(36).slice(2,10);
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const pctToPx = (p, size) => p/100*size;
+const pxToPct = (px, size) => clamp((px/size)*100, 0, 100);
+const fmtPts = (pts) => pts.map(p=>`(${p.x.toFixed(1)},${p.y.toFixed(1)})`).join(' ');
+const nowStr = ()=> new Date().toISOString().replace('T',' ').slice(0,19);
+
+const TRI_EPS = 0.75; // try 0.5..1.0
+
+function expandTri(tri, eps = TRI_EPS){
+  const cx = (tri[0].x + tri[1].x + tri[2].x) / 3;
+  const cy = (tri[0].y + tri[1].y + tri[2].y) / 3;
+  return tri.map(p => {
+    const vx = p.x - cx, vy = p.y - cy;
+    const len = Math.hypot(vx, vy) || 1;
+    return { x: p.x + (vx/len) * eps, y: p.y + (vy/len) * eps };
+  });
+}
+
+/* Canvas + context */
+const ctx = els.canvas.getContext('2d', {alpha:false, desynchronized:true});
+ctx.imageSmoothingEnabled = true;
+
+/* Resize handling */
+function resizeCanvas(){
+  const r = els.stage.getBoundingClientRect();
+  const dpr = window.devicePixelRatio||1;
+  els.canvas.width = Math.floor(r.width*dpr);
+  els.canvas.height = Math.floor(r.height*dpr);
+  els.canvas.style.width = r.width+'px';
+  els.canvas.style.height = r.height+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  els.canvasSize.textContent = `${Math.round(r.width)}×${Math.round(r.height)}`;
+}
+window.addEventListener('resize', resizeCanvas);
+
+/* ==============================
+   Media Loading
+================================*/
+els.fileInput.addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files||[]);
+  for (const file of files){
+    const id = uid();
+    const url = URL.createObjectURL(file);
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    const type = file.type || '';
+    const record = {id, name:file.name, type, kind:'', url};
+    try{
+      if (type.startsWith('image/') && ext !== 'gif'){
+        record.kind = 'image';
+        record.img = new Image();
+        await new Promise((res,rej)=>{ record.img.onload=res; record.img.onerror=rej; record.img.src=url; });
+        record.base64 = await blobToBase64(file);
+      } else if (ext === 'gif' || type === 'image/gif') {
+        record.kind = 'gif';
+        record.gifCanvas = document.createElement('canvas');
+        record.playing = true; // our own gate for drawing
+
+        function onDrawFrame(gctx, frame) {
+            // If "paused", skip drawing so the last painted frame stays visible
+            if (!record.playing) return;
+
+            if (record.gifCanvas.width !== frame.width || record.gifCanvas.height !== frame.height) {
+            record.gifCanvas.width = frame.width;
+            record.gifCanvas.height = frame.height;
+            }
+            gctx.clearRect(0, 0, frame.width, frame.height);
+            gctx.drawImage(frame.buffer, 0, 0);
+        }
+
+        await new Promise((res, rej) => {
+            try {
+            // frames(...) sets up decoding and begins callbacks automatically
+            gifler(url).frames(record.gifCanvas, onDrawFrame);
+            res();
+            } catch (err) { rej(err); }
+        });
+
+        record.base64 = await blobToBase64(file);
+        } else if (type.startsWith('video/')){
+        record.kind = 'video';
+        record.video = document.createElement('video');
+        record.video.src = url;
+        record.video.loop = true; record.video.muted = true; record.video.playsInline = true; record.video.preload='auto';
+        await record.video.play().catch(()=>{ /* will start on user gesture */ });
+      } else {
+        URL.revokeObjectURL(url);
+        continue;
+      }
+      uploadedFiles.push(record);
+    }catch(err){
+      console.error('Failed to load media', file.name, err);
+      URL.revokeObjectURL(url);
+    }
+  }
+  renderLibrary();
+});
+
+/* Utils for base64 */
+async function blobToBase64(blob){
+  return new Promise((res,rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=> res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+}
+
+/* ==============================
+   Library UI
+================================*/
+function renderLibrary(){
+  els.library.innerHTML = '';
+  if (uploadedFiles.length===0){
+    const p = document.createElement('div');
+    p.className = 'muted'; p.textContent='No media yet.';
+    els.library.appendChild(p);
+    return;
+  }
+  uploadedFiles.forEach(m=>{
+    const item = document.createElement('div');
+    item.className = 'media-item' + (selectedMediaId===m.id?' active':'');
+    const typePill = document.createElement('span');
+    typePill.className = 'pill' + (m.kind==='gif'?' orange':'');
+    typePill.textContent = m.kind.toUpperCase();
+    const name = document.createElement('div');
+    name.style.flex='1';
+    name.textContent = m.name;
+    const dims = document.createElement('span');
+    dims.className = 'muted';
+    if (m.kind==='image' && m.img) dims.textContent = `${m.img.naturalWidth}×${m.img.naturalHeight}`;
+    else if (m.kind==='gif' && m.gifCanvas) dims.textContent = `${m.gifCanvas.width||'?'}×${m.gifCanvas.height||'?'}`;
+    else if (m.kind==='video' && m.video) dims.textContent = `${m.video.videoWidth||'?'}×${m.video.videoHeight||'?'}`;
+    item.append(typePill, name, dims);
+    item.onclick = ()=>{ selectedMediaId = m.id; renderLibrary(); status('Selected media: '+m.name); };
+    els.library.appendChild(item);
+  });
+}
+
+/* ==============================
+   Layers UI
+================================*/
+function renderLayersList(){
+  els.layers.innerHTML = '';
+  if (layers.length===0){
+    const p = document.createElement('div');
+    p.className = 'muted'; p.textContent='No layers yet.';
+    els.layers.appendChild(p);
+    return;
+  }
+  layers.forEach((l, idx)=>{
+    const item = document.createElement('div');
+    item.className = 'layer-item' + (l.id===activeLayerId?' active':'');
+    const typePill = document.createElement('span');
+    typePill.className = 'pill' + (l.type==='mask'?' orange':'');
+    typePill.textContent = l.type.toUpperCase();
+    const name = document.createElement('div');
+    name.style.flex='1';
+    const ptsInfo = l.type==='projection' ? `(${l.points.length}/4 pts)` : `(${l.points.length} pts)`;
+    name.textContent = `${l.name} ${ptsInfo}`;
+
+    const controls = document.createElement('div');
+    controls.className = 'controls';
+
+    // up/down
+    const up = document.createElement('button');
+    up.className='btn small secondary'; up.textContent='↑';
+    up.onclick = (e)=>{ e.stopPropagation(); if (idx>0){ const t=layers[idx-1]; layers[idx-1]=layers[idx]; layers[idx]=t; renderLayersList(); } };
+    const down = document.createElement('button');
+    down.className='btn small secondary'; down.textContent='↓';
+    down.onclick = (e)=>{ e.stopPropagation(); if (idx<layers.length-1){ const t=layers[idx+1]; layers[idx+1]=layers[idx]; layers[idx]=t; renderLayersList(); } };
+
+    controls.append(up,down);
+
+    // play/pause if projection with video/gif
+    if (l.type==='projection' && l.mediaId){
+      const m = uploadedFiles.find(m=>m.id===l.mediaId);
+      if (m?.kind==='video' || m?.kind==='gif'){
+        const pb = document.createElement('button');
+        pb.className = 'btn small secondary';
+        const isPlaying = l.playing !== false;
+        pb.textContent = isPlaying ? 'Pause' : 'Play';
+        pb.onclick = (e)=>{
+          e.stopPropagation();
+          l.playing = !isPlaying;
+          applyLayerPlayback(l);
+          renderLayersList();
+        };
+        controls.appendChild(pb);
+      }
+    }
+
+    // delete
+    const del = document.createElement('button');
+    del.className = 'btn small red'; del.textContent='Delete';
+    del.onclick = (e)=>{ e.stopPropagation(); deleteLayer(l.id); };
+
+    item.append(typePill, name, controls, del);
+    item.onclick = ()=>{ activeLayerId = l.id; isDrawing=false; status('Selected '+l.name); drawHandles(); renderLayersList(); };
+    els.layers.appendChild(item);
+  });
+}
+
+function deleteLayer(id){
+  const i = layers.findIndex(l=>l.id===id);
+  if (i>=0) layers.splice(i,1);
+  if (activeLayerId===id) activeLayerId=null;
+  drawHandles(); renderLayersList(); status('Layer deleted');
+}
+
+function clearAll(){
+  layers = [];
+  drawHandles(); renderLayersList(); status('All layers cleared');
+}
+
+/* ==============================
+   New Layer / Buttons
+================================*/
+function newLayer(){
+  if (layerType==='projection' && !selectedMediaId){
+    alert('Select a media item in the library first.');
+    return;
+  }
+  const n = layers.filter(l=>l.type===layerType).length + 1;
+  const l = {
+    id:uid(),
+    type: layerType,
+    name: layerType==='projection' ? `Projection ${n}` : `Mask ${n}`,
+    points: [],
+    mediaId: layerType==='projection' ? selectedMediaId : null,
+    playing: true,
+    createdAt: Date.now()
+  };
+  layers.push(l);
+  activeLayerId = l.id;
+  isDrawing = true;
+  drawHandles();
+  renderLayersList();
+  status(`Drawing ${l.name} — click to place points`);
+}
+
+els.newLayerBtn.onclick = newLayer;
+els.selectProjection.onclick = ()=>{ layerType='projection'; status('Layer type: Projection'); };
+els.selectMask.onclick = ()=>{ layerType='mask'; status('Layer type: Mask'); };
+els.completeMaskBtn.onclick = ()=> completeMask();
+els.clearAllBtn.onclick = ()=> { if (confirm('Clear all layers?')) clearAll(); };
+
+function completeMask(){
+  const l = layers.find(x=>x.id===activeLayerId);
+  if (!l || l.type!=='mask') return;
+  if (l.points.length>=3){
+    isDrawing=false; status(`${l.name} completed`);
+    drawHandles(); renderLayersList();
+  } else {
+    alert('Mask needs at least 3 points');
+  }
+}
+
+function cancelDrawing(){
+  if (!isDrawing) return;
+  const l = layers.find(x=>x.id===activeLayerId);
+  if (!l) return;
+  if (l.points.length===0){ deleteLayer(l.id); }
+  isDrawing=false; status('Drawing cancelled');
+}
+
+/* ==============================
+   Playback
+================================*/
+function applyLayerPlayback(layer) {
+  const m = uploadedFiles.find(mm => mm.id === layer.mediaId);
+  if (!m) return;
+  const play = layer.playing !== false;
+
+  if (m.kind === 'video' && m.video) {
+    if (play) { m.video.play().catch(()=>{}); } else { m.video.pause(); }
+  } else if (m.kind === 'gif') {
+    // Gate drawing via our flag
+    m.playing = play;
+  }
+}
+
+function togglePlayAll(){
+  videosPlaying = !videosPlaying;
+  layers.forEach(l=>{
+    if (l.type==='projection' && l.mediaId){
+      l.playing = videosPlaying;
+      applyLayerPlayback(l);
+    }
+  });
+}
+els.playPauseAllBtn.onclick = togglePlayAll;
+
+/* ==============================
+   Project Save/Load
+================================*/
+els.saveProjectBtn.onclick = ()=> saveProject();
+els.loadProjectInput.addEventListener('change', (e)=> loadProjectFile(e.target.files?.[0]));
+
+async function saveProject(){
+  const media = uploadedFiles.map(m=>{
+    const base = {id:m.id, name:m.name, kind:m.kind, type:m.type};
+    if (m.kind==='image' || m.kind==='gif'){
+      return {...base, data:m.base64||null};
+    } else if (m.kind==='video'){
+      return {...base, filename:m.name}; // videos need re-upload
+    }
+    return base;
+  });
+  const project = {
+    version:'1.0.1',
+    savedAt: new Date().toISOString(),
+    media,
+    layers: layers.map(l=>({
+      id:l.id, type:l.type, name:l.name, points:l.points, mediaId:l.mediaId||null, playing:l.playing!==false
+    }))
+  };
+  const blob = new Blob([JSON.stringify(project,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `projection-project-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  status('Project saved');
+}
+
+async function loadProjectFile(file){
+  if (!file) return;
+  try{
+    const text = await file.text();
+    const project = JSON.parse(text);
+    await loadProject(project);
+    status('Project loaded');
+  }catch(e){
+    console.error(e);
+    alert('Failed to load project: '+e.message);
+  }
+}
+
+async function loadProject(project){
+  // Reset
+  layers = [];
+  // Rebuild media
+  uploadedFiles = [];
+  for (const m of (project.media||[])){
+    const rec = {id:m.id||uid(), name:m.name, type:m.type||'', kind:m.kind, url:null};
+    if ((m.kind==='image' || m.kind==='gif') && m.data){
+      const blob = dataURLToBlob(m.data);
+      rec.url = URL.createObjectURL(blob);
+      if (m.kind==='image'){
+        rec.img = new Image();
+        await new Promise((res,rej)=>{ rec.img.onload=res; rec.img.onerror=rej; rec.img.src = rec.url; });
+        rec.base64 = m.data;
+      } else if (m.kind === 'gif') {
+        const blob = dataURLToBlob(m.data);
+        rec.url = URL.createObjectURL(blob);
+        rec.gifCanvas = document.createElement('canvas');
+        rec.playing = m.playing !== false;
+
+        function onDrawFrame(gctx, frame) {
+            if (!rec.playing) return;
+            if (rec.gifCanvas.width !== frame.width || rec.gifCanvas.height !== frame.height) {
+            rec.gifCanvas.width = frame.width;
+            rec.gifCanvas.height = frame.height;
+            }
+            gctx.clearRect(0, 0, frame.width, frame.height);
+            gctx.drawImage(frame.buffer, 0, 0);
+        }
+
+        await new Promise((res, rej) => {
+            try { gifler(rec.url).frames(rec.gifCanvas, onDrawFrame); res(); }
+            catch(e){ rej(e); }
+        });
+
+        rec.base64 = m.data;
+    } // REMOVE THIS
+
+    } else if (m.kind==='video'){
+      rec.video = document.createElement('video');
+      rec.video.loop = true; rec.video.muted = true; rec.video.playsInline = true;
+      // No data embedded; user must re-upload to actually play
+    }
+    uploadedFiles.push(rec);
+  }
+  // Rebuild layers
+  for (const l of (project.layers||[])){
+    layers.push({
+      id:l.id||uid(),
+      type:l.type,
+      name:l.name|| (l.type==='mask'?'Mask':'Projection'),
+      points:l.points||[],
+      mediaId:l.mediaId||null,
+      playing:l.playing!==false
+    });
+  }
+  renderLibrary();
+  renderLayersList();
+  drawHandles();
+}
+
+function dataURLToBlob(dataURL){
+  const [meta, data] = dataURL.split(',');
+  const mime = /data:(.*);base64/.exec(meta)[1];
+  const bin = atob(data);
+  const len = bin.length;
+  const arr = new Uint8Array(len);
+  for (let i=0;i<len;i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type:mime});
+}
+
+/* ==============================
+   SVG Handles (draw + drag)
+================================*/
+function svgClear(){ els.overlay.innerHTML = ''; }
+
+function drawHandles(){
+  svgClear();
+  if (!handlesVisible) return;
+
+  layers.forEach(layer=>{
+    const group = document.createElementNS('http://www.w3.org/2000/svg','g');
+
+    // Edges
+    if (layer.points.length>=2){
+      for (let i=0;i<layer.points.length;i++){
+        const a = layer.points[i];
+        const b = layer.points[(i+1)%layer.points.length];
+        if (layer.type==='projection' && i===layer.points.length-1 && layer.points.length<4) break; // open until 4
+        const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+        ln.setAttribute('x1', a.x); ln.setAttribute('y1', a.y);
+        ln.setAttribute('x2', b.x); ln.setAttribute('y2', b.y);
+        ln.setAttribute('class', 'edge'+(layer.type==='mask'?' mask':''));
+        if (layer.id!==activeLayerId) ln.classList.add('ghost');
+        group.appendChild(ln);
+      }
+    }
+
+    // Points
+    layer.points.forEach((p,idx)=>{
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', 1.8);
+      c.setAttribute('class', 'handle'+(idx===0?' first':''));
+      if (layer.id!==activeLayerId) c.setAttribute('fill', '#fff');
+      c.addEventListener('pointerdown', (e)=> startDrag(e, layer.id, idx));
+      group.appendChild(c);
+
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x', p.x+1.5); t.setAttribute('y', p.y-1.5);
+      t.setAttribute('class','index-label');
+      t.textContent = idx;
+      group.appendChild(t);
+    });
+
+    els.overlay.appendChild(group);
+  });
+}
+
+function startDrag(e, layerId, idx){
+  e.preventDefault();
+  els.overlay.setPointerCapture(e.pointerId);
+  mouseDrag = {layerId, idx};
+}
+function stopDrag(e){
+  if (!mouseDrag) return;
+  els.overlay.releasePointerCapture?.(e.pointerId);
+  mouseDrag = null;
+}
+function onDrag(e){
+  if (!mouseDrag) return;
+  const l = layers.find(x=>x.id===mouseDrag.layerId);
+  if (!l) return;
+  const rect = els.overlay.getBoundingClientRect();
+  const xPct = pxToPct(e.clientX - rect.left, rect.width);
+  const yPct = pxToPct(e.clientY - rect.top, rect.height);
+  const snapped = snapPct({x:xPct,y:yPct});
+  l.points[mouseDrag.idx] = snapped;
+  drawHandles();
+}
+
+els.overlay.addEventListener('pointerup', stopDrag);
+els.overlay.addEventListener('pointercancel', stopDrag);
+els.overlay.addEventListener('pointermove', onDrag);
+
+/* Add point on click (overlay background) */
+els.overlay.addEventListener('pointerdown',(e)=>{
+  // only add when background is clicked (not dragging a handle)
+  if (!isDrawing) return;
+
+  const l = layers.find(x=>x.id===activeLayerId);
+  if (!l) return;
+
+  const rect = els.overlay.getBoundingClientRect();
+  const xPct = pxToPct(e.clientX - rect.left, rect.width);
+  const yPct = pxToPct(e.clientY - rect.top, rect.height);
+  const snapped = snapPct({x:xPct,y:yPct});
+
+  if (l.type==='projection'){
+    if (l.points.length<4){
+      l.points.push(snapped);
+      if (l.points.length===4){
+        isDrawing=false;
+        status(`${l.name} defined`);
+      }
+    }
+  } else {
+    // mask: 3+ manual completion
+    l.points.push(snapped);
+  }
+  renderLayersList();
+  drawHandles();
+});
+
+function snapPct(p){
+  // Simple 0.5% snap for visual stability
+  return {x: Math.round(p.x*2)/2, y: Math.round(p.y*2)/2};
+}
+
+/* ==============================
+   Buttons & Shortcuts
+================================*/
+els.toggleHandlesBtn.onclick = ()=>{ handlesVisible = !handlesVisible; drawHandles(); };
+els.saveProjectBtn.onclick = ()=> saveProject();
+
+els.toggleSidebarBtn.onclick = ()=>{
+  controlsVisible = !controlsVisible;
+  els.sidebar.classList.toggle('hidden', !controlsVisible);
+};
+
+window.addEventListener('keydown', (e)=>{
+  if (e.code==='KeyH') { handlesVisible=!handlesVisible; drawHandles(); }
+  else if (e.code==='KeyC') { controlsVisible=!controlsVisible; els.sidebar.classList.toggle('hidden', !controlsVisible); }
+  else if (e.code==='Space'){ e.preventDefault(); togglePlayAll(); }
+  else if (e.code==='Escape'){ cancelDrawing(); }
+  else if (e.code==='Delete'){
+    if (activeLayerId){ deleteLayer(activeLayerId); }
+  }
+});
+
+/* ==============================
+   Rendering
+================================*/
+function status(s){ els.statusText.textContent = s; }
+function activeInfo(){
+  const l = layers.find(x=>x.id===activeLayerId);
+  els.activeInfo.textContent = l ? `${l.name} ${l.type.toUpperCase()} ${l.points.length}pt` : 'None';
+}
+
+function render(){
+  requestAnimationFrame(render);
+  activeInfo();
+
+  // Clear & black background
+  ctx.save();
+  const r = els.canvas.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0,0,r.width,r.height);
+
+  // For each layer in order (z-order by array index)
+  for (const layer of layers){
+    if (layer.type==='mask'){
+      if (layer.points.length>=3){
+        drawMask(layer.points, r);
+      }
+    } else if (layer.type==='projection'){
+      if (layer.points.length===4 && layer.mediaId){
+        const media = uploadedFiles.find(m=>m.id===layer.mediaId);
+        if (!media) continue;
+        drawProjection(layer, media, r);
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+/* Fill black polygon for mask */
+function drawMask(pointsPct, rect){
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out'; // subtract from what has been drawn so far
+  ctx.beginPath();
+  pointsPct.forEach((p,idx)=>{
+    const x = pctToPx(p.x, rect.width);
+    const y = pctToPx(p.y, rect.height);
+    if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = 'black';
+  ctx.fill();
+  ctx.restore();
+}
+
+/* Draw projection with perspective via triangle subdivision */
+function drawProjection(layer, media, rect){
+  const quad = layer.points.map(p=>({ x:pctToPx(p.x,rect.width), y:pctToPx(p.y,rect.height) }));
+  // Media dimensions
+  let srcW=0, srcH=0, source=null, isReady=false;
+  if (media.kind==='image' && media.img?.complete){
+    source = media.img; srcW=media.img.naturalWidth; srcH=media.img.naturalHeight; isReady=true;
+  } else if (media.kind==='gif' && media.gifCanvas){
+    source = media.gifCanvas; srcW=media.gifCanvas.width; srcH=media.gifCanvas.height; isReady = srcW>0 && srcH>0;
+  } else if (media.kind==='video' && media.video?.videoWidth){
+    source = media.video; srcW=media.video.videoWidth; srcH=media.video.videoHeight; isReady=true;
+  }
+  if (!isReady || !source) return;
+
+  // Subdivide unit square
+  const du = 1/SUBDIV, dv = 1/SUBDIV;
+
+  // Bilinear interpolation for quad
+  const Q = quad; // clockwise expected
+  function bilerp(u,v){
+    // Q0(u=0,v=0), Q1(1,0), Q2(1,1), Q3(0,1)
+    const x = (1-u)*(1-v)*Q[0].x + u*(1-v)*Q[1].x + u*v*Q[2].x + (1-u)*v*Q[3].x;
+    const y = (1-u)*(1-v)*Q[0].y + u*(1-v)*Q[1].y + u*v*Q[2].y + (1-u)*v*Q[3].y;
+    return {x,y};
+  }
+
+  for (let i=0;i<SUBDIV;i++){
+    for (let j=0;j<SUBDIV;j++){
+      const u0 = i*du, v0 = j*dv;
+      const u1 = (i+1)*du, v1 = (j+1)*dv;
+
+      const p00 = bilerp(u0,v0);
+      const p10 = bilerp(u1,v0);
+      const p01 = bilerp(u0,v1);
+      const p11 = bilerp(u1,v1);
+
+      // Two triangles per cell: [p00,p10,p11] and [p00,p11,p01]
+      drawWarpTriangle(
+        source,
+        // src triangle in media UV mapped to pixels
+        [{x:u0*srcW, y:v0*srcH},{x:u1*srcW, y:v0*srcH},{x:u1*srcW, y:v1*srcH}],
+        // dst
+        [p00,p10,p11]
+      );
+      drawWarpTriangle(
+        source,
+        [{x:u0*srcW, y:v0*srcH},{x:u1*srcW, y:v1*srcH},{x:u0*srcW, y:v1*srcH}],
+        [p00,p11,p01]
+      );
+    }
+  }
+}
+
+function drawWarpTriangle(image, srcTri, dstTri){
+  const m = affineFromTriangles(srcTri, dstTri);
+  if (!m) return;
+
+  const dst = expandTri(dstTri); // slight overlap between neighbors
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.moveTo(dst[0].x, dst[0].y);
+  ctx.lineTo(dst[1].x, dst[1].y);
+  ctx.lineTo(dst[2].x, dst[2].y);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+}
+
+function affineFromTriangles(src, dst){
+  // src, dst: arrays of 3 points {x,y}
+  // Solve for 2x3 matrix M such that [X Y 1]^T = [ [a c e],[b d f],[0 0 1] ] * [x y 1]^T
+  const S = [
+    src[0].x, src[0].y, 1,
+    src[1].x, src[1].y, 1,
+    src[2].x, src[2].y, 1
+  ];
+  const invS = invert3x3(S);
+  if (!invS) return null;
+  const X = [dst[0].x, dst[1].x, dst[2].x];
+  const Y = [dst[0].y, dst[1].y, dst[2].y];
+  const ace = mul3x3vec(invS, X); // [a,c,e]
+  const bdf = mul3x3vec(invS, Y); // [b,d,f]
+  // Return Canvas 2D matrix a,b,c,d,e,f
+  return [ace[0], bdf[0], ace[1], bdf[1], ace[2], bdf[2]];
+}
+
+function invert3x3(m){
+  // m as [a,b,c, d,e,f, g,h,i]
+  const a=m[0], b=m[1], c=m[2],
+        d=m[3], e=m[4], f=m[5],
+        g=m[6], h=m[7], i=m[8];
+  const A =   e*i - f*h;
+  const B = -(d*i - f*g);
+  const C =   d*h - e*g;
+  const D = -(b*i - c*h);
+  const E =   a*i - c*g;
+  const F = -(a*h - b*g);
+  const G =   b*f - c*e;
+  const H = -(a*f - c*d);
+  const I =   a*e - b*d;
+
+  const det = a*A + b*B + c*C;
+  if (Math.abs(det) < 1e-8) return null;
+  const invdet = 1/det;
+  return [A*invdet, D*invdet, G*invdet,
+          B*invdet, E*invdet, H*invdet,
+          C*invdet, F*invdet, I*invdet];
+}
+function mul3x3vec(m, v){ // 3x3 * 3x1
+  return [
+    m[0]*v[0] + m[1]*v[1] + m[2]*v[2],
+    m[3]*v[0] + m[4]*v[1] + m[5]*v[2],
+    m[6]*v[0] + m[7]*v[1] + m[8]*v[2],
+  ];
+}
+
+/* ==============================
+   Init & Loop
+================================*/
+function init(){
+  resizeCanvas();
+  renderLibrary();
+  renderLayersList();
+  drawHandles();
+  render();
+  status('Idle — ready');
+  console.log('gifler:', typeof gifler);
+}
+init();
+
+/* ==============================
+   UX niceties
+================================*/
+const info = document.createElement('div');
+info.style.position='fixed'; info.style.left='12px'; info.style.bottom='10px';
+info.style.fontSize='12px'; info.style.color='#94a3b8';
+info.innerHTML = 'Tip: first point is <b style="color:#ef4444">RED</b>; others are <b style="color:#facc15">YELLOW</b>.';
+document.body.appendChild(info);
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+### Prompt for an AI engineer to reimplement “Projection Mapper” as a single-file web app
+
+You are to recreate a lightweight projection‑mapping tool as a single self‑contained HTML file (HTML+CSS+JS in one document). Keep it fast, simple, dependency‑light, and keyboard/mouse friendly. Implement all behaviors below precisely. Do not add features not listed (no undo stacks, no complex transforms for marker layers, etc.). Target modern Chromium, Firefox, and Safari.
+
+————————————
+### High-level purpose
+- Let users map images/GIFs/videos onto arbitrary 4‑point quads on a canvas for projection.
+- Provide polygon masks that cut holes in the composited result.
+- Provide a simple freehand Marker layer for quick annotations (color per layer, no transforms).
+- Allow loading multiple media assets, layer reordering, play/pause, fullscreen, and JSON save/load of full project state. GIF/video media are referenced by filename and must be re‑linked on load; images are embedded.
+
+————————————
+### Tech and packaging
+- Single HTML file containing:
+  - A left sidebar (controls/library/layers)
+  - A main stage area (HTMLCanvasElement for final pixels; SVG overlay for handles)
+  - Minimal CSS in a <style> block (dark UI)
+  - Single external dependency: gifler via unpkg for GIF decoding. No build tools.
+- No frameworks. Vanilla JS only.
+
+————————————
+### UI layout and elements
+Sidebar (collapsible):
+- Project
+  - Save button (id: saveProjectBtn)
+  - Load label+file input (id: loadProjectInput, accept application/json)
+  - Small hint text element for “Loaded:” timestamp (id: projHint)
+- Media Library
+  - Upload label+file input (id: fileInput, accept image/*,video/*,.gif, multiple)
+  - List container (id: library). Each row shows:
+    - Badge with kind (IMAGE/GIF/VIDEO). If needs relink, badge uses a “relink” color.
+    - Filename (append “(relink needed)” when appropriate)
+    - Button “Use” to select as current media for assigning to a projection layer
+- Layer Type
+  - Buttons: Projection (id: selectProjection), Mask (id: selectMask), Marker (id: selectMarker)
+  - New Layer button (id: newLayerBtn)
+  - Note: Clicking on canvas adds points for the active layer when drawing
+- Layers
+  - List container (id: layers). Each row shows:
+    - Z‑order number
+    - Layer label (Projection, Mask, Marker)
+    - Controls: Up, Down, Select, Set Media (only for Projection), Delete
+  - Buttons: Complete Mask (id: completeMaskBtn), Clear All Layers (id: clearAllBtn)
+- View & Playback
+  - Buttons: Toggle Handles (id: toggleHandlesBtn), Play/Pause All (id: playPauseAllBtn), Fullscreen (id: fullscreenBtn)
+  - Marker Color: input type="color" (id: markerColor); applies to active Marker layer only
+
+Main/stage:
+- Top bar with:
+  - Canvas size readout (id: canvasSize)
+  - Active layer info (id: activeInfo)
+  - Status line (id: statusText)
+- Stage container (id: stage)
+  - Canvas (id: canvas) for composited output
+  - SVG overlay (id: overlay) for handles/paths (viewBox 0 0 100 100, preserveAspectRatio="none")
+  - HUD overlay (id: hud) with “Status” and “Active” that auto‑hides in fullscreen after inactivity
+
+————————————
+### Layer model and behavior
+Layer types (stacked top‑to‑bottom in array order):
+1) Projection layer
+   - Exactly 4 points in percentage coordinates (0–100) relative to canvas size
+   - Has mediaId/mediaName linking to a media item in library
+   - Renders the assigned media mapped to the quad using bilinear subdivision and per‑triangle affine transforms (see Rendering)
+2) Mask layer
+   - 3+ points polygon in percentage coordinates
+   - Renders as destination‑out on the canvas to cut holes
+   - “Complete Mask” ends drawing; polygon closes automatically
+3) Marker layer (simple freehand)
+   - No transforms; draws strokes on top using the canvas in scene space
+   - Data: color (hex string, default "#ffeb3b"), strokes: array of strokes; each stroke is an array of points in percent coords
+   - Pointer interaction: pointerdown starts a stroke, pointermove appends points, pointerup ends it
+   - Color picker updates the active Marker layer’s color
+   - No undo; delete the layer to remove all strokes
+
+Shared interactions:
+- Create a new layer with “+ New Layer”; its “type” is whichever selector is active
+- Selecting a layer makes it active; z‑order changes with Up/Down
+- Delete removes the layer
+- Toggle Handles shows/hides SVG handles/paths for Projection/Mask. Marker does not use handles.
+- Clicking the canvas when drawing:
+  - Projection: adds snapped points until 4 are set, then finishes
+  - Mask: keeps adding until user clicks “Complete Mask”
+  - Marker: freehand as above (continuous, not point‑by‑point)
+- Active layer info displays name/type/point count
+
+————————————
+### Media library
+- Accept multiple files (images, GIFs, videos). For GIFs use gifler to render an offscreen canvas; for videos use HTMLVideoElement.
+- Library rows show kind badge, filename, “Use” button to select current media for assignment.
+- For JSON save:
+  - Images embed base64 data URL
+  - GIF/Video save as stub with filename only; upon load, show “relink needed”; user can upload the same filename to hydrate the stub (relink by name and kind)
+- “Set Media” button on a Projection layer assigns selected mediaId/mediaName.
+
+————————————
+### Rendering pipeline
+- Canvas resizes to fill the stage. DevicePixelRatio aware. Display size text as “WxH @dprx”.
+- Clear canvas each frame; draw solid background.
+- Draw layers in array order:
+  - Mask: destination‑out polygon fill
+  - Projection: draw the mapped media within the quad
+  - Marker: draw each stroke as a polyline with round caps/join, pressure not required. Reasonable defaults: width 4–6 px at 1x, scale line width by DPR.
+- Projection mapping:
+  - Given quad points p0..p3 (clockwise), subdivide parametric space into SUBDIV x SUBDIV cells (default 10 x 10).
+  - For each cell, compute four bilinear-interpolated corner points on destination quad, split into two triangles.
+  - For each triangle, compute a 2x3 affine transform mapping from source image rect to destination triangle via affineFromTriangles, clip to destination triangle, drawImage with the transform.
+  - Slightly expand destination triangles outward from centroid to hide seams (epsilon ~0.85 px at 1x; configurable TRI_EPS).
+- isMediaReady(m):
+  - image: img.naturalWidth>0
+  - gif: gifCanvas exists and width>0
+  - video: video element has videoWidth>0
+
+————————————
+### Fullscreen + HUD
+- Fullscreen targets the stage element. On entering, show HUD, then auto‑hide after inactivity (e.g., 2–3 seconds). Mousemove/touchstart/keydown in fullscreen shows HUD and restarts timer. Exiting fullscreen shows HUD again.
+
+————————————
+### Persistence (Save/Load)
+- JSON schema (example):
+{
+  "version": "1.2.0",
+  "savedAt": "2025-10-24T12:34:56.000Z",
+  "media": [
+    {"id":"m1","name":"image.jpg","kind":"image","type":"image/jpeg","data":"data:image/jpeg;base64,..."},
+    {"id":"m2","name":"loop.gif","kind":"gif","type":"image/gif","filename":"loop.gif"},
+    {"id":"m3","name":"clip.mp4","kind":"video","type":"video/mp4","filename":"clip.mp4"}
+  ],
+  "layers": [
+    {
+      "id":"l1","type":"projection","name":"Projection",
+      "points":[{"x":10,"y":10},{"x":80,"y":12},{"x":78,"y":60},{"x":12,"y":58}],
+      "mediaId":"m1","mediaName":"image.jpg","playing":true
+    },
+    {
+      "id":"l2","type":"mask","name":"Mask",
+      "points":[{"x":30,"y":30},{"x":50,"y":30},{"x":40,"y":50}],
+      "playing":true
+    },
+    {
+      "id":"l3","type":"marker","name":"Marker",
+      "strokes":[
+        [{"x":20,"y":20},{"x":25,"y":22},{"x":30,"y":25}],
+        [{"x":40,"y":40},{"x":45,"y":45}]
+      ],
+      "color":"#ffeb3b","playing":true
+    }
+  ]
+}
+- Save: download as projection-project-YYYY-MM-DDTHH‑MM‑SS.json
+- Load: replace current state; images hydrated from data URLs; GIF/Video become stubs with needsReupload=true until user uploads matching filename (same kind). Update projHint with localized “Loaded:” timestamp.
+
+————————————
+### Input handling
+- Pointer events on SVG overlay for adding points to Projection/Mask. Points snap to 0.5% grid.
+- For Marker, pointer events on overlay or stage to capture continuous strokes; store points as percent of current canvas size so they scale with resize.
+- Keyboard shortcuts:
+  - H: toggle handles
+  - Space: play/pause all media
+  - F: fullscreen
+  - Optional: Delete removes active layer (if you add this, document it in the UI)
+
+————————————
+### Core data structures
+- uploadedFiles: [{ id, name, kind: 'image'|'gif'|'video', type, data?, img?, video?, gifCanvas?, needsReupload?, playing? }]
+- layers: Array of layer records
+  - Projection: { id, type:'projection', name:'Projection', points:[{x,y} x4], mediaId?, mediaName?, playing:true }
+  - Mask: { id, type:'mask', name:'Mask', points:[{x,y} x>=3], playing:true }
+  - Marker: { id, type:'marker', name:'Marker', color:'#ffeb3b', strokes: Array<Array<{x,y}>>, playing:true }
+- activeLayerId, layerType ('projection'|'mask'|'marker'), handlesVisible, controlsVisible, videosPlaying
+
+————————————
+### Algorithms (pseudocode)
+
+Bilinear interpolation on quad:
+- Given quad = [p00, p10, p11, p01] and parameters u,v in [0,1]:
+  - x = (1-u)(1-v)p00.x + u(1-v)p10.x + uv p11.x + (1-u)v p01.x
+  - y = (same with y)
+
+Subdivide and draw:
+for i in 0..SUBDIV-1:
+  for j in 0..SUBDIV-1:
+    u0=i/SUBDIV; v0=j/SUBDIV
+    u1=(i+1)/SUBDIV; v1=(j+1)/SUBDIV
+    dstQuad = [B(u0,v0), B(u1,v0), B(u1,v1), B(u0,v1)]
+    Triangles: T1 = (p00,p10,p11), T2 = (p00,p11,p01)
+    Compute affine per triangle from source image rect tri to destination tri
+    Clip to destination tri, drawImage with transform
+
+Affine from triangles:
+- Solve for 2x3 matrix M mapping src tri to dst tri by inverting the 3x3 homogeneous src matrix and multiplying by dst x,y vectors.
+
+Marker rendering:
+- For each stroke:
+  - ctx.lineWidth = baseWidth * DPR (e.g., 4 * dpr)
+  - ctx.strokeStyle = layer.color
+  - Move/lineTo through points converted from percent to pixels
+
+————————————
+### Performance and quality
+- Use desynchronized canvas context if available; enable imageSmoothing high.
+- Cache DPR and update on resize; update canvas dimensions and transform.
+- Slight triangle expansion (TRI_EPS) to hide seams where bilinear splits.
+- Avoid per‑frame allocations inside hot loops.
+
+————————————
+### Edge cases and rules
+- Projection requires exactly 4 points; ignore extra clicks once 4 are set.
+- Mask requires >=3 points; “Complete Mask” closes polygon.
+- Marker accepts strokes even if other layers exist; no handles for Marker.
+- If selectedMediaId is null and user hits “Set Media”, show status prompting to choose media.
+- If a GIF/Video stub is present on load, it should render nothing until re‑linked; badge and filename indicate relink needed.
+- Handle sidebar collapse/expand; canvas resizes accordingly.
+- All percentages must be clamped [0,100].
+
+————————————
+### Visual style
+- Dark theme with subtle separators and muted text; small, square buttons. Use CSS variables for colors (bg, panel, text, muted, blue, orange, red, line, handle).
+- SVG handles:
+  - Projection: draw a path for the quad and circular draggable points when handlesVisible is true
+  - Mask: path for polygon and draggable points
+  - Marker: no handles
+
+————————————
+### Status/HUD
+- status(text) updates both statusText and hudStatus.
+- activeInfo shows current layer name/type and point count.
+- HUD auto‑hides after inactivity only in fullscreen; any movement or key resets timer.
+
+————————————
+### Acceptance criteria
+- Single HTML file; only external script allowed is gifler via CDN.
+- Create Projection, Mask, and Marker layers; draw with the interactions above.
+- Reorder layers; z‑order reflected in rendering.
+- Assign media to Projection layers; GIFs animate; videos play/pause with global Play/Pause.
+- Toggle handles; handles only affect Projection/Mask visibility.
+- Save produces JSON matching schema; Load restores state; images hydrated; GIF/Video stubs indicate relink; relinking by uploading same filename works without breaking layer references.
+- Fullscreen fills stage; HUD behavior as specified.
+- Marker color picker affects active Marker layer immediately; strokes persist and export.
+- No runtime console errors in common flows (upload, draw, save, load, fullscreen, relink).
+
+————————————
+### Non-goals
+- No per‑stroke undo/redo.
+- No marker transforms/skewing.
+- No multi‑file bundling or build pipeline.
+
+————————————
+### Nice-to-haves (optional after core)
+- Keyboard Delete removes active layer.
+- Snap‑to‑grid toggle for handles.
+- Export PNG of current canvas.
+
+————————————
+### Deliverables
+- One HTML file named projection_mapper.html implementing everything above.
+- Brief README comment at top of file describing controls and shortcuts.
+- Self‑check routine or minimal test notes covering: create each layer type, draw, assign media, reorder, save, reload, relink GIF/video, fullscreen HUD.

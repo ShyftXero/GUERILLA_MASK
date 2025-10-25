@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projection Mapper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #controls {
+            width: 300px;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #333;
+            transition: none;
+            flex-shrink: 0;
+        }
+
+        #controls.hidden {
+            display: none;
+        }
+
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #000;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+
+        #canvas-container.dragging {
+            cursor: move;
+        }
+
+        #canvas-container.handles-hidden {
+            cursor: default;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .btn:disabled {
+            background: #374151;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #dc2626;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-success {
+            background: #16a34a;
+        }
+
+        .btn-success:hover {
+            background: #15803d;
+        }
+
+        .btn-warning {
+            background: #d97706;
+        }
+
+        .btn-warning:hover {
+            background: #b45309;
+        }
+
+        h2 {
+            margin: 20px 0 10px 0;
+            font-size: 18px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .divider {
+            height: 1px;
+            background: #333;
+            margin: 20px 0;
+        }
+
+        #file-list, #layer-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+
+        .file-item, .layer-item {
+            padding: 8px;
+            margin: 4px 0;
+            background: #2a2a2a;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-item:hover, .layer-item:hover {
+            background: #3a3a3a;
+        }
+
+        .file-item.active, .layer-item.active {
+            background: #374151;
+            border-left: 3px solid #2563eb;
+        }
+
+        .layer-item.mask {
+            border-left: 3px solid #d97706;
+        }
+
+        .layer-item.active.mask {
+            background: #374151;
+            border-left: 3px solid #d97706;
+        }
+
+        .delete-btn {
+            background: #dc2626;
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .alert {
+            padding: 10px;
+            margin: 10px 0;
+            background: #1e40af;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .alert.warning {
+            background: #92400e;
+        }
+
+        .instruction {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 5px 0;
+        }
+
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            z-index: 100;
+        }
+
+        svg.hidden {
+            display: none;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .type-selector {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .type-btn {
+            flex: 1;
+            padding: 8px;
+            background: #374151;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .type-btn.active {
+            background: #2563eb;
+        }
+
+        .type-btn.mask-active {
+            background: #d97706;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            padding: 6px;
+            font-size: 11px;
+        }
+
+        .toggle-overlay {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 200;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .toggle-overlay button {
+            padding: 8px 12px;
+            background: #374151;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .toggle-overlay button:hover {
+            background: #4b5563;
+        }
+
+        .toggle-overlay button.active {
+            background: #2563eb;
+        }
+
+        .keyboard-hint {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .keyboard-hint.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h1>Projection Mapper</h1>
+        
+        <div class="divider"></div>
+        
+        <h2>Upload Media</h2>
+        <input type="file" id="file-input" accept="image/*,video/*" multiple style="display: none;">
+        <button class="btn" onclick="document.getElementById('file-input').click()">Choose Files</button>
+        
+        <div id="file-list"></div>
+        
+        <div class="divider"></div>
+        
+        <h2>Layers</h2>
+        
+        <div class="type-selector">
+            <button class="type-btn active" id="projection-type-btn" onclick="setLayerType('projection')">Projection</button>
+            <button class="type-btn" id="mask-type-btn" onclick="setLayerType('mask')">Mask</button>
+        </div>
+        
+        <button class="btn btn-success" id="new-layer-btn" onclick="startNewLayer()">New Layer</button>
+        
+        <div id="drawing-alert" class="alert" style="display: none;">
+            <div id="projection-instructions">Projection: Click 4 corners (clockwise) to map media</div>
+            <div id="mask-instructions" style="display: none;">Mask: Click 3+ points to create shape, then 'Complete'</div>
+        </div>
+
+        <div class="action-buttons" id="mask-actions" style="display: none;">
+            <button class="btn btn-success" onclick="completeMask()">Complete Mask</button>
+            <button class="btn btn-danger" onclick="cancelDrawing()">Cancel</button>
+        </div>
+        
+        <div id="layer-list"></div>
+        
+        <button class="btn btn-danger" onclick="clearAll()">Clear All Layers</button>
+        
+        <div class="divider"></div>
+        
+        <h2>View Controls</h2>
+        <button class="btn" onclick="toggleHandles()">
+            <span id="handles-btn-text">Hide Handles (H)</span>
+        </button>
+        <button class="btn" onclick="toggleControls()">
+            <span>Hide Controls (C)</span>
+        </button>
+        
+        <div class="divider"></div>
+<h2>Project</h2>
+<button class="btn btn-success" onclick="saveProject()">💾 Save Project</button>
+<button class="btn btn-warning" onclick="loadProject()">📂 Load Project</button>
+<input type="file" id="project-file" accept=".json" style="display: none;" onchange="handleProjectLoad(event)">
+
+        <div class="divider"></div>
+        
+        <h2>Instructions</h2>
+        <div class="instruction">1. Upload media files</div>
+        <div class="instruction">2. Choose Projection or Mask</div>
+        <div class="instruction">3. Click 'New Layer'</div>
+        <div class="instruction">4. Projection: 4 corners (auto-closes)</div>
+        <div class="instruction">5. Mask: 3+ points, then 'Complete'</div>
+        <div class="instruction">6. Drag points to adjust</div>
+        <div class="instruction">7. Press F11 for fullscreen</div>
+        <div class="instruction">8. H = Toggle handles, C = Toggle controls</div>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="projection-canvas"></canvas>
+        <svg id="svg-canvas"></svg>
+    </div>
+
+    <div class="toggle-overlay" id="toggle-overlay">
+        <button onclick="toggleHandles()" id="overlay-handles-btn">Hide Handles (H)</button>
+        <button onclick="toggleControls()" id="overlay-controls-btn">Show Controls (C)</button>
+    </div>
+
+    <div class="keyboard-hint" id="keyboard-hint"></div>
+
+    <script>
+        // State
+        let uploadedFiles = [];
+        let currentMedia = null;
+        let layers = [];
+        let activeLayerId = null;
+        let isDrawing = false;
+        let draggingPoint = null;
+        let isDragging = false;
+        let layerType = 'projection';
+        let handlesVisible = true;
+        let controlsVisible = true;
+        
+        // Canvas setup
+        const canvas = document.getElementById('projection-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const svg = document.getElementById('svg-canvas');
+        const container = document.getElementById('canvas-container');
+        
+        // Prevent any scrolling or shifting
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('scroll', (e) => e.preventDefault(), { passive: false });
+        
+        // Resize canvas to match window - but prevent reflow
+        function resizeCanvas() {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Only resize if dimensions actually changed
+            if (canvas.width !== width || canvas.height !== height) {
+                canvas.width = width;
+                canvas.height = height;
+                render();
+            }
+        }
+        
+        // Use ResizeObserver for more stable resizing
+        const resizeObserver = new ResizeObserver(() => {
+            resizeCanvas();
+        });
+        resizeObserver.observe(container);
+        
+        resizeCanvas();
+
+        // Initialize
+        document.getElementById('file-input').addEventListener('change', handleFileUpload);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'h' || e.key === 'H') {
+                e.preventDefault();
+                toggleHandles();
+                showKeyboardHint('Handles ' + (handlesVisible ? 'visible' : 'hidden'));
+            } else if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                toggleControls();
+                showKeyboardHint('Controls ' + (controlsVisible ? 'visible' : 'hidden'));
+            } else if (e.key === 'Escape' && isDrawing) {
+                e.preventDefault();
+                cancelDrawing();
+                showKeyboardHint('Drawing cancelled');
+            }
+        });
+
+        function showKeyboardHint(text) {
+            const hint = document.getElementById('keyboard-hint');
+            hint.textContent = text;
+            hint.classList.add('visible');
+            setTimeout(() => {
+                hint.classList.remove('visible');
+            }, 1500);
+        }
+
+        function toggleHandles() {
+            handlesVisible = !handlesVisible;
+            const svg = document.getElementById('svg-canvas');
+            const container = document.getElementById('canvas-container');
+            
+            if (handlesVisible) {
+                svg.classList.remove('hidden');
+                container.classList.remove('handles-hidden');
+                document.getElementById('handles-btn-text').textContent = 'Hide Handles (H)';
+                document.getElementById('overlay-handles-btn').textContent = 'Hide Handles (H)';
+            } else {
+                svg.classList.add('hidden');
+                container.classList.add('handles-hidden');
+                document.getElementById('handles-btn-text').textContent = 'Show Handles (H)';
+                document.getElementById('overlay-handles-btn').textContent = 'Show Handles (H)';
+            }
+        }
+
+        function toggleControls() {
+            controlsVisible = !controlsVisible;
+            const controls = document.getElementById('controls');
+            
+            if (controlsVisible) {
+                controls.classList.remove('hidden');
+                document.getElementById('overlay-controls-btn').textContent = 'Hide Controls (C)';
+            } else {
+                controls.classList.add('hidden');
+                document.getElementById('overlay-controls-btn').textContent = 'Show Controls (C)';
+            }
+        }
+
+        function handleFileUpload(e) {
+            const files = Array.from(e.target.files);
+            
+            files.forEach(file => {
+                const url = URL.createObjectURL(file);
+                const fileData = {
+                    name: file.name,
+                    url: url,
+                    type: file.type.startsWith('video') ? 'video' : 'image'
+                };
+                
+                uploadedFiles.push(fileData);
+                
+                if (!currentMedia) {
+                    currentMedia = fileData;
+                }
+            });
+            
+            updateFileList();
+            updateNewLayerButton();
+        }
+
+        function updateFileList() {
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            
+            uploadedFiles.forEach(file => {
+                const div = document.createElement('div');
+                div.className = 'file-item' + (currentMedia === file ? ' active' : '');
+                div.innerHTML = `<span>${file.name}</span>`;
+                div.onclick = () => selectMedia(file);
+                list.appendChild(div);
+            });
+        }
+
+        function selectMedia(file) {
+            currentMedia = file;
+            updateFileList();
+        }
+
+        function setLayerType(type) {
+            layerType = type;
+            document.getElementById('projection-type-btn').className = 'type-btn' + (type === 'projection' ? ' active' : '');
+            document.getElementById('mask-type-btn').className = 'type-btn' + (type === 'mask' ? ' mask-active' : '');
+            updateNewLayerButton();
+            updateDrawingAlert();
+        }
+
+        function startNewLayer() {
+            if ((layerType === 'projection' && !currentMedia) || isDrawing) return;
+            
+            const layer = {
+                id: Date.now().toString(),
+                type: layerType,
+                points: [],
+                mediaUrl: layerType === 'projection' ? currentMedia.url : null,
+                mediaType: layerType === 'projection' ? currentMedia.type : null,
+                mediaElement: null
+            };
+            
+            // Preload media for projection layers
+            if (layer.type === 'projection') {
+                if (layer.mediaType === 'image') {
+                    const img = new Image();
+                    img.src = layer.mediaUrl;
+                    img.onload = () => render();
+                    layer.mediaElement = img;
+                } else if (layer.mediaType === 'video') {
+                    const video = document.createElement('video');
+                    video.src = layer.mediaUrl;
+                    video.autoplay = true;
+                    video.loop = true;
+                    video.muted = true;
+                    video.onloadeddata = () => render();
+                    layer.mediaElement = video;
+                }
+            }
+            
+            layers.push(layer);
+            activeLayerId = layer.id;
+            isDrawing = true;
+            
+            updateLayerList();
+            updateDrawingAlert();
+            updateNewLayerButton();
+        }
+
+        function completeMask() {
+            const layer = layers.find(l => l.id === activeLayerId);
+            if (!layer || layer.points.length < 3) return;
+            
+            isDrawing = false;
+            updateLayerList();
+            updateDrawingAlert();
+            updateNewLayerButton();
+            render();
+        }
+
+        function cancelDrawing() {
+            if (!isDrawing || !activeLayerId) return;
+            
+            layers = layers.filter(l => l.id !== activeLayerId);
+            activeLayerId = null;
+            isDrawing = false;
+            
+            updateLayerList();
+            updateDrawingAlert();
+            updateNewLayerButton();
+            render();
+        }
+
+        function updateNewLayerButton() {
+            const btn = document.getElementById('new-layer-btn');
+            btn.disabled = isDrawing || (layerType === 'projection' && !currentMedia);
+        }
+
+        function updateDrawingAlert() {
+            const alert = document.getElementById('drawing-alert');
+            const projInstructions = document.getElementById('projection-instructions');
+            const maskInstructions = document.getElementById('mask-instructions');
+            const maskActions = document.getElementById('mask-actions');
+            
+            if (isDrawing) {
+                alert.style.display = 'block';
+                const activeLayer = layers.find(l => l.id === activeLayerId);
+                
+                if (activeLayer && activeLayer.type === 'mask') {
+                    projInstructions.style.display = 'none';
+                    maskInstructions.style.display = 'block';
+                    maskActions.style.display = 'flex';
+                } else {
+                    projInstructions.style.display = 'block';
+                    maskInstructions.style.display = 'none';
+                    maskActions.style.display = 'none';
+                }
+            } else {
+                alert.style.display = 'none';
+                maskActions.style.display = 'none';
+            }
+        }
+
+        function updateLayerList() {
+            const list = document.getElementById('layer-list');
+            list.innerHTML = '';
+            
+            layers.forEach((layer, idx) => {
+                const div = document.createElement('div');
+                div.className = 'layer-item' + 
+                    (activeLayerId === layer.id ? ' active' : '') +
+                    (layer.type === 'mask' ? ' mask' : '');
+                
+                const text = document.createElement('span');
+                const typeLabel = layer.type === 'mask' ? 'Mask' : 'Projection';
+                const pointsLabel = layer.type === 'projection' ? 
+                    `(${layer.points.length}/4 pts)` : 
+                    `(${layer.points.length} pts)`;
+                text.textContent = `${typeLabel} ${idx + 1} ${pointsLabel}`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'delete-btn';
+                btn.textContent = '×';
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteLayer(layer.id);
+                };
+                
+                div.appendChild(text);
+                div.appendChild(btn);
+                div.onclick = () => selectLayer(layer.id);
+                
+                list.appendChild(div);
+            });
+        }
+
+        function selectLayer(layerId) {
+            if (isDrawing) return;
+            activeLayerId = layerId;
+            updateLayerList();
+            render();
+        }
+
+        function deleteLayer(layerId) {
+            layers = layers.filter(l => l.id !== layerId);
+            if (activeLayerId === layerId) {
+                activeLayerId = null;
+                isDrawing = false;
+            }
+            updateLayerList();
+            updateDrawingAlert();
+            updateNewLayerButton();
+            render();
+        }
+
+        function clearAll() {
+            layers = [];
+            activeLayerId = null;
+            isDrawing = false;
+            updateLayerList();
+            updateDrawingAlert();
+            updateNewLayerButton();
+            render();
+        }
+
+        // Canvas interaction
+        function getCanvasCoords(e) {
+            const rect = svg.getBoundingClientRect();
+            return {
+                x: ((e.clientX - rect.left) / rect.width) * 100,
+                y: ((e.clientY - rect.top) / rect.height) * 100
+            };
+        }
+
+        function findPointNear(x, y, threshold = 2) {
+            if (!handlesVisible) return null;
+            
+            for (let layer of layers) {
+                for (let i = 0; i < layer.points.length; i++) {
+                    const point = layer.points[i];
+                    const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
+                    if (distance < threshold) {
+                        return { layerId: layer.id, pointIndex: i, point };
+                    }
+                }
+            }
+            return null;
+        }
+
+        svg.addEventListener('mousedown', (e) => {
+            if (!handlesVisible && !isDrawing) return;
+            
+            const coords = getCanvasCoords(e);
+            
+            // Check if clicking on an existing point (to drag it)
+            const foundPoint = findPointNear(coords.x, coords.y);
+            if (foundPoint) {
+                draggingPoint = foundPoint;
+                isDragging = true;
+                activeLayerId = foundPoint.layerId;
+                container.classList.add('dragging');
+                updateLayerList();
+                e.preventDefault();
+                return;
+            }
+            
+            // If in drawing mode, add a new point
+            if (isDrawing) {
+                const layer = layers.find(l => l.id === activeLayerId);
+                if (!layer) return;
+                
+                if (layer.type === 'projection') {
+                    // Only allow 4 points for projection
+                    if (layer.points.length < 4) {
+                        layer.points.push({ x: coords.x, y: coords.y });
+                        
+                        // Auto-complete after 4 points
+                        if (layer.points.length === 4) {
+                            isDrawing = false;
+                            updateDrawingAlert();
+                            updateNewLayerButton();
+                        }
+                        
+                        updateLayerList();
+                        render();
+                    }
+                } else {
+                    // Allow any number of points for mask
+                    layer.points.push({ x: coords.x, y: coords.y });
+                    updateLayerList();
+                    render();
+                }
+            }
+        });
+
+        svg.addEventListener('mousemove', (e) => {
+            if (!isDragging || !draggingPoint) return;
+            
+            const coords = getCanvasCoords(e);
+            const layer = layers.find(l => l.id === draggingPoint.layerId);
+            if (layer) {
+                layer.points[draggingPoint.pointIndex] = { x: coords.x, y: coords.y };
+                render();
+            }
+        });
+
+        svg.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                draggingPoint = null;
+                container.classList.remove('dragging');
+            }
+        });
+
+        svg.addEventListener('mouseleave', () => {
+            if (isDragging) {
+                isDragging = false;
+                draggingPoint = null;
+                container.classList.remove('dragging');
+            }
+        });
+
+        // Perspective transformation math
+        function applyPerspectiveTransform(ctx, img, points) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const pixelPoints = points.map(p => ({ x: p.x * w / 100, y: p.y * h / 100 }));
+            
+            const srcPoints = [
+                { x: 0, y: 0 },
+                { x: img.width, y: 0 },
+                { x: img.width, y: img.height },
+                { x: 0, y: img.height }
+            ];
+            
+            const dstPoints = pixelPoints;
+            
+            renderPerspective(ctx, img, srcPoints, dstPoints);
+        }
+
+        function renderPerspective(ctx, img, src, dst) {
+            const subdiv = 16; // Increased from 8 for smoother perspective
+            
+            for (let y = 0; y < subdiv; y++) {
+                for (let x = 0; x < subdiv; x++) {
+                    const u0 = x / subdiv;
+                    const v0 = y / subdiv;
+                    const u1 = (x + 1) / subdiv;
+                    const v1 = (y + 1) / subdiv;
+                    
+                    const srcQuad = [
+                        bilinearInterp(src[0], src[1], src[2], src[3], u0, v0),
+                        bilinearInterp(src[0], src[1], src[2], src[3], u1, v0),
+                        bilinearInterp(src[0], src[1], src[2], src[3], u1, v1),
+                        bilinearInterp(src[0], src[1], src[2], src[3], u0, v1)
+                    ];
+                    
+                    const dstQuad = [
+                        perspectiveInterp(dst[0], dst[1], dst[2], dst[3], u0, v0),
+                        perspectiveInterp(dst[0], dst[1], dst[2], dst[3], u1, v0),
+                        perspectiveInterp(dst[0], dst[1], dst[2], dst[3], u1, v1),
+                        perspectiveInterp(dst[0], dst[1], dst[2], dst[3], u0, v1)
+                    ];
+                    
+                    drawQuad(ctx, img, srcQuad, dstQuad);
+                }
+            }
+        }
+
+        function bilinearInterp(p0, p1, p2, p3, u, v) {
+            const top = lerp(p0, p1, u);
+            const bottom = lerp(p3, p2, u);
+            return lerp(top, bottom, v);
+        }
+
+        function perspectiveInterp(p0, p1, p2, p3, u, v) {
+            const w0 = (1 - u) * (1 - v);
+            const w1 = u * (1 - v);
+            const w2 = u * v;
+            const w3 = (1 - u) * v;
+            
+            const wSum = w0 + w1 + w2 + w3;
+            
+            return {
+                x: (p0.x * w0 + p1.x * w1 + p2.x * w2 + p3.x * w3) / wSum,
+                y: (p0.y * w0 + p1.y * w1 + p2.y * w2 + p3.y * w3) / wSum
+            };
+        }
+
+        function lerp(p0, p1, t) {
+            return {
+                x: p0.x + (p1.x - p0.x) * t,
+                y: p0.y + (p1.y - p0.y) * t
+            };
+        }
+
+        function drawQuad(ctx, img, srcQuad, dstQuad) {
+            drawTriangle(ctx, img, 
+                [srcQuad[0], srcQuad[1], srcQuad[2]], 
+                [dstQuad[0], dstQuad[1], dstQuad[2]]
+            );
+            drawTriangle(ctx, img, 
+                [srcQuad[0], srcQuad[2], srcQuad[3]], 
+                [dstQuad[0], dstQuad[2], dstQuad[3]]
+            );
+        }
+
+        function drawTriangle(ctx, img, srcTri, dstTri) {
+            const src = srcTri;
+            const dst = dstTri;
+            
+            ctx.save();
+            
+            // Expand the clipping region slightly to avoid gaps
+            ctx.beginPath();
+            ctx.moveTo(dst[0].x, dst[0].y);
+            ctx.lineTo(dst[1].x, dst[1].y);
+            ctx.lineTo(dst[2].x, dst[2].y);
+            ctx.closePath();
+            ctx.clip();
+            
+            const x0 = src[0].x, y0 = src[0].y;
+            const x1 = src[1].x, y1 = src[1].y;
+            const x2 = src[2].x, y2 = src[2].y;
+            
+            const u0 = dst[0].x, v0 = dst[0].y;
+            const u1 = dst[1].x, v1 = dst[1].y;
+            const u2 = dst[2].x, v2 = dst[2].y;
+            
+            const delta = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+            if (Math.abs(delta) < 1e-5) {
+                ctx.restore();
+                return;
+            }
+            
+            const deltaA = (u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0);
+            const deltaB = (x1 - x0) * (u2 - u0) - (x2 - x0) * (u1 - u0);
+            const deltaC = (v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0);
+            const deltaD = (x1 - x0) * (v2 - v0) - (x2 - x0) * (v1 - v0);
+            
+            const a = deltaA / delta;
+            const b = deltaB / delta;
+            const c = deltaC / delta;
+            const d = deltaD / delta;
+            const e = u0 - a * x0 - b * y0;
+            const f = v0 - c * x0 - d * y0;
+            
+            ctx.transform(a, c, b, d, e, f);
+            
+            // Enable image smoothing for better quality
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Draw image with slight overdraw to eliminate gaps
+            ctx.drawImage(img, -0.5, -0.5, img.width + 1, img.height + 1);
+            
+            ctx.restore();
+        }
+        // Rendering
+        function render() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            svg.innerHTML = '';
+            
+            layers.forEach(layer => {
+                if (layer.type === 'projection' && layer.points.length === 4 && layer.mediaElement) {
+                    if (layer.mediaElement.complete || layer.mediaElement.readyState >= 2) {
+                        applyPerspectiveTransform(ctx, layer.mediaElement, layer.points);
+                    }
+                } else if (layer.type === 'mask' && layer.points.length >= 3) {
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    layer.points.forEach((p, i) => {
+                        const x = p.x * w / 100;
+                        const y = p.y * h / 100;
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                if (handlesVisible) {
+                    drawLayerOutline(layer);
+                    drawPointsAndLines(layer);
+                }
+            });
+        }
+
+        function drawLayerOutline(layer) {
+            if (layer.points.length < 2) return;
+            
+            const isComplete = (layer.type === 'projection' && layer.points.length === 4) ||
+                             (layer.type === 'mask' && layer.points.length >= 3 && !isDrawing);
+            
+            if (isComplete) {
+                const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const points = layer.points.map(p => `${p.x},${p.y}`).join(' ');
+                polygon.setAttribute('points', points);
+                polygon.setAttribute('fill', 'none');
+                
+                if (layer.type === 'mask') {
+                    polygon.setAttribute('stroke', layer.id === activeLayerId ? 'orange' : 'rgba(255, 165, 0, 0.5)');
+                } else {
+                    polygon.setAttribute('stroke', layer.id === activeLayerId ? 'lime' : 'rgba(255, 255, 255, 0.3)');
+                }
+                
+                polygon.setAttribute('stroke-width', '0.2');
+                polygon.setAttribute('vector-effect', 'non-scaling-stroke');
+                svg.appendChild(polygon);
+            }
+        }
+
+        function drawPointsAndLines(layer) {
+            if (layer.points.length >= 2) {
+                const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                const points = layer.points.map(p => `${p.x},${p.y}`).join(' ');
+                polyline.setAttribute('points', points);
+                polyline.setAttribute('fill', 'none');
+                
+                if (layer.type === 'mask') {
+                    polyline.setAttribute('stroke', layer.id === activeLayerId ? 'orange' : 'rgba(255, 165, 0, 0.5)');
+                } else {
+                    polyline.setAttribute('stroke', layer.id === activeLayerId ? 'yellow' : 'rgba(255, 255, 0, 0.5)');
+                }
+                
+                polyline.setAttribute('stroke-width', '0.15');
+                polyline.setAttribute('vector-effect', 'non-scaling-stroke');
+                polyline.setAttribute('stroke-dasharray', '0.5, 0.5');
+                svg.appendChild(polyline);
+            }
+            
+            layer.points.forEach((point, i) => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', point.x);
+                circle.setAttribute('cy', point.y);
+                circle.setAttribute('r', '1');
+                
+                const isActive = layer.id === activeLayerId;
+                const isFirst = i === 0 && isDrawing && isActive;
+                
+                let fillColor;
+                if (layer.type === 'mask') {
+                    fillColor = isFirst ? 'red' : (isActive ? 'orange' : 'rgba(255, 165, 0, 0.7)');
+                } else {
+                    fillColor = isFirst ? 'red' : (isActive ? 'yellow' : 'white');
+                }
+                
+                circle.setAttribute('fill', fillColor);
+                circle.setAttribute('stroke', 'black');
+                circle.setAttribute('stroke-width', '0.2');
+                circle.setAttribute('vector-effect', 'non-scaling-stroke');
+                circle.style.cursor = 'move';
+                
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', point.x);
+                text.setAttribute('y', point.y - 1.5);
+                text.setAttribute('fill', 'white');
+                text.setAttribute('font-size', '2');
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('stroke', 'black');
+                text.setAttribute('stroke-width', '0.1');
+                text.textContent = i + 1;
+                
+                svg.appendChild(circle);
+                svg.appendChild(text);
+            });
+        }
+
+        svg.setAttribute('viewBox', '0 0 100 100');
+        svg.setAttribute('preserveAspectRatio', 'none');
+        
+        function animate() {
+            render();
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Add these functions after the animate() function:
+
+        function saveProject() {
+            const project = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                layers: layers.map(layer => ({
+                    id: layer.id,
+                    type: layer.type,
+                    points: layer.points,
+                    mediaFile: layer.mediaFile, // Store filename for reference
+                    mediaType: layer.mediaType,
+                    // Store media data as base64 if it exists
+                    mediaData: layer.mediaElement ? getMediaDataURL(layer.mediaElement) : null
+                }))
+            };
+            
+            const json = JSON.stringify(project, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `projection_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Project saved!');
+        }
+
+        function getMediaDataURL(element) {
+            if (element.tagName === 'IMG') {
+                // For images, convert to base64
+                const canvas = document.createElement('canvas');
+                canvas.width = element.naturalWidth;
+                canvas.height = element.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(element, 0, 0);
+                return canvas.toDataURL('image/png');
+            } else if (element.tagName === 'VIDEO') {
+                // For videos, we'll store the source URL (not the full video data)
+                // User will need to have the video file available
+                return element.src;
+            }
+            return null;
+        }
+
+        function loadProject() {
+            document.getElementById('project-file').click();
+        }
+
+        async function handleProjectLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const project = JSON.parse(text);
+                
+                // Clear existing layers
+                layers = [];
+                layerIdCounter = 0;
+                activeLayerId = null;
+                isDrawing = false;
+                currentPoints = [];
+                currentLayerType = 'projection';
+                
+                // Restore layers
+                for (const layerData of project.layers) {
+                    const layer = {
+                        id: layerIdCounter++,
+                        type: layerData.type,
+                        points: layerData.points,
+                        mediaFile: layerData.mediaFile,
+                        mediaType: layerData.mediaType,
+                        mediaElement: null
+                    };
+                    
+                    // Restore media if data exists
+                    if (layerData.mediaData) {
+                        if (layerData.mediaType === 'image') {
+                            const img = new Image();
+                            img.src = layerData.mediaData;
+                            await new Promise(resolve => {
+                                img.onload = resolve;
+                            });
+                            layer.mediaElement = img;
+                        } else if (layerData.mediaType === 'video') {
+                            // For videos, user needs to reselect the file
+                            // We'll just show a placeholder
+                            console.log('Video layer found - reupload required:', layerData.mediaFile);
+                        }
+                    }
+                    
+                    layers.push(layer);
+                }
+                
+                updateLayerList();
+                render();
+                showNotification('Project loaded! Note: Videos need to be re-uploaded.');
+                
+                // Reset file input
+                event.target.value = '';
+                
+            } catch (error) {
+                console.error('Error loading project:', error);
+                showNotification('Error loading project!');
+            }
+        }
+
+        function showNotification(message) {
+            const existing = document.getElementById('notification');
+            if (existing) existing.remove();
+            
+            const notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 60px;
+                right: 20px;
+                background: #2563eb;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+                z-index: 10000;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.transition = 'opacity 0.3s';
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
