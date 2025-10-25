@@ -2,8 +2,10 @@
 
 A single-file, no‑frills projection‑mapping tool designed for rapid deployment during demonstrations and pop‑up actions. Works offline in a modern browser, on modest laptops, with common projectors. Map images/GIFs/videos onto surfaces, cut holes with masks, and add quick marker notes. Save/load projects as JSON for reuse.
 
----
+![guerilla_mask ui ](showoff.png "the page")
 
+---
+ 
 ## Why GUERILLA_MASK
 
 - Fast to learn, fast to deploy
