@@ -1,213 +1,142 @@
-# Projection Mapper (Single‑file Web App)
+# GUERILLA_MASK
 
-A lightweight projection‑mapping tool in one HTML file. Map images/GIFs/videos onto quads, add polygon masks, and scribble quick annotations with a simple Marker layer. Save and load full projects as JSON. No frameworks.
+A single-file, no‑frills projection‑mapping tool designed for rapid deployment during demonstrations and pop‑up actions. Works offline in a modern browser, on modest laptops, with common projectors. Map images/GIFs/videos onto surfaces, cut holes with masks, and add quick marker notes. Save/load projects as JSON for reuse.
 
 ---
 
-## Features
+## Why GUERILLA_MASK
 
-- Single HTML file; no build step
+- Fast to learn, fast to deploy
+- Runs from one HTML file (open locally; no install)
+- Works with cheap/older projectors and laptops
+- Offline by default (after first open if cached)
+- Simple, predictable controls under pressure
+
+---
+
+## Core features
+
 - Three layer types:
-  - Projection: 4‑point quad with bilinear subdivision and per‑triangle affine mapping
-  - Mask: polygon that cuts holes in the composite (destination‑out)
-  - Marker: freehand scribbles; one color per layer; no transforms
-- Media library with Images, GIFs (via gifler), and Videos
+  - Projection: warp a media item to a 4‑point quad
+  - Mask: polygon that blocks areas of the output
+  - Marker: freehand strokes for quick notes/markups
+- Media: images, GIFs (via gifler), videos
 - Layer reordering, selection, delete
-- Play/Pause all animated media, fullscreen mode with HUD auto‑hide
-- Project save/load (JSON). Images embed; GIF/Video are filename stubs that can be re‑linked later.
+- Global Play/Pause, Toggle Handles, Fullscreen
+- Save/Load project as JSON
+  - Images embed in JSON
+  - GIF/Video saved as filename stubs; re‑link on load
+- HUD that auto‑hides in fullscreen to keep output clean
 
 ---
 
-## Quick start
+## Quick start (field workflow)
 
-1. Download/open the HTML file in a modern browser (Chromium, Firefox, Safari).
-2. Upload media (images/GIFs/videos).
-3. Choose a layer type (Projection, Mask, Marker), then press “+ New Layer”.
-4. Draw:
-   - Projection: click 4 points (clockwise) on the canvas.
-   - Mask: click 3+ points, then “Complete Mask”.
-   - Marker: press/drag to scribble; choose color from the color picker (applies to active Marker layer).
-5. Reorder layers from the Layers list.
-6. Assign media to a Projection layer using “Set Media”.
-7. Save as JSON. Load later; re‑upload matching GIF/Video filenames to re‑link.
+1. Download/open the single HTML file in Chrome/Firefox/Safari.
+2. Click Upload and add your media (PNG/JPG, GIF, MP4).
+3. Choose Projection, press + New Layer, then click 4 points on the surface in the live view.
+4. Use Set Media on that layer to assign your file.
+5. Add Mask layers to hide unwanted spill on surroundings.
+6. Use Marker layer for quick alignment notes or arrows.
+7. Press Fullscreen; toggle handles off before you go live.
+
+Tip: Prepare multiple saved JSONs (different surfaces/messages) and load them quickly on site.
 
 ---
 
-## UI map
+## Minimal hardware
 
-- Sidebar
-  - Project: Save, Load, “Loaded:” hint
-  - Media Library: upload input and list with Use buttons
-  - Layer Type: Projection, Mask, Marker + “+ New Layer”
-  - Layers: list with Up/Down/Select/Set Media/Delete, plus “Complete Mask” and “Clear All Layers”
-  - View & Playback: Toggle Handles, Play/Pause All, Fullscreen, Marker Color
-- Stage
-  - Top bar: canvas size, active layer, status
-  - Canvas: final composite
-  - SVG overlay: handles/paths for Projection/Mask
-  - HUD: status/active; auto‑hides in fullscreen after inactivity
+- Any laptop from the last decade that runs a modern browser
+- Common 720p/1080p projector (short‑throw helpful but not required)
+- Optional: small tripod or clamp mount
+- Extension cord and gaffer tape
+
+No special GPU or drivers required.
 
 ---
 
 ## Controls and shortcuts
 
-- C: toggle sidebar (via “Hide” button)
-- H: toggle handles (Projection/Mask only)
-- Space: play/pause all videos/GIFs
-- F: fullscreen stage
-- Delete: delete active layer (if implemented in your build)
-- Mouse/Touch:
-  - Projection: click to add 4 points
+- H — Toggle handles (for Projection/Mask)
+- Space — Play/Pause all GIFs/videos
+- F — Fullscreen stage
+- Delete — Delete active layer (if enabled)
+- Mouse:
+  - Projection: click 4 points (clockwise)
   - Mask: click 3+ points, then “Complete Mask”
-  - Marker: press/drag to draw; color via color picker
+  - Marker: press/drag to draw; color via picker
 
 ---
 
-## Layers
+## Save/Load and media relinking
 
-- Projection
-  - 4 points in percentage coordinates (0–100)
-  - Requires assigned media
-  - Drawn with bilinear subdivision into triangles to minimize distortion
-- Mask
-  - 3+ points polygon; uses destination‑out composite to cut holes
-- Marker
-  - Strokes stored as arrays of percentage points
-  - One color per layer (default #ffeb3b)
-  - No transforms; delete the layer to “undo” all scribbles
-
-Z‑order follows the list order: topmost row draws last.
+- Save creates a JSON with full project state.
+- Load restores layers and geometry.
+- Images embed; GIFs/videos are stored by filename only.
+- After loading, re‑upload the same GIF/video filenames to relink them; layers keep their references.
 
 ---
 
-## Media library
+## Field checklist
 
-- Accepts: image/*, video/*, .gif
-- Images: embedded as data URLs and immediately renderable
-- GIFs: decoded using gifler into an offscreen canvas
-- Videos: HTMLVideoElement; looped, muted, and plays inline
-- “Use” selects a media item for assignment to a Projection layer
-
----
-
-## Save/Load behavior
-
-- Save: downloads a project JSON file named “projection-project-YYYY-MM-DDTHH‑MM‑SS.json”
-- Load: replaces current state; images are hydrated from data URLs
-- GIF/Video: saved as filename stub; after load, they appear as “relink needed”
-  - To relink: upload the same filename and kind; the app hydrates the stub and keeps layer references intact
-
-### JSON schema (representative)
-
-```json
-{
-  "version": "1.2.0",
-  "savedAt": "2025-10-24T12:34:56.000Z",
-  "media": [
-    { "id": "m1", "name": "image.jpg", "kind": "image", "type": "image/jpeg", "data": "data:image/jpeg;base64,..." },
-    { "id": "m2", "name": "loop.gif",  "kind": "gif",   "type": "image/gif", "filename": "loop.gif" },
-    { "id": "m3", "name": "clip.mp4",  "kind": "video", "type": "video/mp4", "filename": "clip.mp4" }
-  ],
-  "layers": [
-    {
-      "id": "l1",
-      "type": "projection",
-      "name": "Projection",
-      "points": [{ "x": 10, "y": 10 }, { "x": 80, "y": 12 }, { "x": 78, "y": 60 }, { "x": 12, "y": 58 }],
-      "mediaId": "m1",
-      "mediaName": "image.jpg",
-      "playing": true
-    },
-    {
-      "id": "l2",
-      "type": "mask",
-      "name": "Mask",
-      "points": [{ "x": 30, "y": 30 }, { "x": 50, "y": 30 }, { "x": 40, "y": 50 }],
-      "playing": true
-    },
-    {
-      "id": "l3",
-      "type": "marker",
-      "name": "Marker",
-      "strokes": [
-        [{ "x": 20, "y": 20 }, { "x": 25, "y": 22 }, { "x": 30, "y": 25 }],
-        [{ "x": 40, "y": 40 }, { "x": 45, "y": 45 }]
-      ],
-      "color": "#ffeb3b",
-      "playing": true
-    }
-  ]
-}
-```
-
-Notes:
-- Percent coordinates are clamped to [0, 100] and are relative to the current canvas size.
-- Deleting a layer removes its content; there is no per‑stroke undo for Marker.
+- Charge laptop; disable sleep and auto‑updates
+- Set browser zoom to 100%
+- Pre‑focus and keystone the projector
+- Bring spare HDMI/USB‑C adapters
+- Prepare dark/contrasty artwork; high‑legibility fonts
+- Pack long power cable and tape
+- Test fullscreen and handle toggle before moving
 
 ---
 
-## Fullscreen and HUD
+## Tips for alignment on uneven surfaces
 
-- Fullscreen targets the stage for clean output
-- HUD shows “Status” and “Active”
-- In fullscreen, HUD auto‑hides after short inactivity; any mouse/touch/keyboard activity re‑shows it
-- Exiting fullscreen restores HUD visibility
-
----
-
-## Rendering details
-
-- Canvas uses devicePixelRatio scaling; size readout shows “WxH @dprx”
-- Image smoothing enabled and set to high
-- Projection mapping:
-  - Subdivide quad into SUBDIV×SUBDIV grid (default 10×10)
-  - Split each cell into two triangles
-  - Compute affine transform per triangle; clip and draw
-  - Slightly expand destination triangles to hide seams
+- Place four Projection points at visually strong corners (windows, tiles, bricks)
+- Use Mask layers to clip spill around edges, signs, or foliage
+- For wide walls, split into multiple Projection layers with different media if needed
+- Keep point order consistent (clockwise) to avoid twisted quads
 
 ---
 
-## Relinking flow (GIF/Video)
+## Safety and operational considerations
 
-1. Load a saved project; GIF/Video items show as stubs marked “relink needed”
-2. Upload the original files with the same filenames
-3. The app hydrates the stubs in place (IDs preserved); projection layers start rendering again
+- Be mindful of surroundings; avoid shining into windows or traffic
+- Keep cables tidy to prevent trips
+- Consider spotters/watchers; plan quick pack‑up
+- Know local guidelines and laws before operating
 
 ---
 
 ## Troubleshooting
 
-- Nothing renders on a Projection layer:
-  - Ensure 4 points are set, media assigned, and media is “ready” (image loaded, GIF canvas created, or video metadata loaded)
-- GIF/Video not playing after load:
-  - Re‑upload the original file to relink
-- Canvas looks soft:
-  - Check browser zoom and devicePixelRatio; the app scales for DPR automatically
-- Handles missing:
-  - Toggle “Toggle Handles” (H). Marker layers do not have handles.
+- Nothing shows on a Projection layer:
+  - Ensure 4 points, media assigned, and media finished loading
+- GIF/Video silent after loading a JSON:
+  - Re‑upload the original file to relink (same filename)
+- Output looks soft:
+  - Check browser zoom and devicePixelRatio; try 100% zoom
+- Seams in warped media:
+  - Slightly adjust points; the renderer expands triangles to reduce gaps
 
 ---
 
-## Development notes
+## Technical notes
 
-- Vanilla JS; no frameworks
-- External dependency: gifler via unpkg for GIF decoding
-- SVG overlay handles for Projection/Mask; Marker uses direct freehand capture
-- Data model:
-  - uploadedFiles: media store (image/gif/video)
-  - layers: ordered array of projection/mask/marker records
-  - activeLayerId, layerType, handlesVisible, controlsVisible, videosPlaying
-
----
-
-## Roadmap (optional)
-
-- Delete key to remove active layer
-- Snap‑to‑grid toggle for handles
-- Export PNG of current canvas
+- Single HTML file (vanilla JS + inline CSS); optional gifler via CDN for GIFs
+- Canvas with devicePixelRatio scaling
+- Projection rendering via grid subdivision into triangles
+- Percent‑based coordinates (0–100) so layouts adapt to resolution changes
 
 ---
 
 ## License
 
-MIT (or your preferred permissive license). Include third‑party license notice for gifler if required.
+MIT (or your preferred permissive license). If using gifler, include its license notice.
+
+---
+
+## Project goals
+
+- Keep it simple, dependable, and easy to train in minutes
+- Prioritize offline use, modest hardware, and quick setup
+- Empower communities to project messages without complex tooling
