@@ -14,6 +14,7 @@ A single-file, no‑frills projection‑mapping tool designed for rapid deployme
 - Offline by default (after first open if cached)
 - Simple, predictable controls under pressure
 
+Try it -> https://shyftxero.github.io/GUERILLA_MASK/
 ---
 
 ## Core features
