@@ -8,11 +8,13 @@ A single-file, no‑frills projection‑mapping tool designed for rapid deployme
  
 ## Why GUERILLA_MASK
 
-- Fast to learn, fast to deploy
-- Runs from one HTML file (open locally; no install)
-- Works with cheap/older projectors and laptops
-- Offline by default (after first open if cached)
-- Simple, predictable controls under pressure
+- Keep it simple, dependable, and easy to train in minutes
+  - Runs from one HTML file (open locally; no install)
+  - Prioritize offline use, modest hardware, and quick setup
+  - Offline by default (after first open if cached)
+- Empower communities to project messages without complex tooling
+  - Works with cheap/older projectors and laptops
+  - Simple, predictable controls under pressure
 
 Try it -> https://shyftxero.github.io/GUERILLA_MASK/
 ---
@@ -130,16 +132,3 @@ No special GPU or drivers required.
 - Projection rendering via grid subdivision into triangles
 - Percent‑based coordinates (0–100) so layouts adapt to resolution changes
 
----
-
-## License
-
-MIT (or your preferred permissive license). If using gifler, include its license notice.
-
----
-
-## Project goals
-
-- Keep it simple, dependable, and easy to train in minutes
-- Prioritize offline use, modest hardware, and quick setup
-- Empower communities to project messages without complex tooling
