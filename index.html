@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Projection Mapper — Single File</title>
+
+<!-- Only external dep (for GIFs) -->
+<script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#1a1a1a;
+    --text:#e5e7eb;
+    --muted:#9ca3af;
+    --blue:#2563eb;
+    --orange:#d97706;
+    --red:#ef4444;
+    --line:#334155;
+    --handle:#fbbf24;
+    --handle-first:#ef4444;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+
+  .app{display:flex;height:100%;overflow:hidden}
+
+  /* Sidebar collapses width so main grows */
+  .sidebar{
+    width:340px; min-width:260px; max-width:520px;
+    background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; gap:10px; padding:12px 12px 16px;
+    transition: width .28s ease, min-width .28s ease, max-width .28s ease,
+                padding .28s ease, border-width .28s ease;
+    will-change: width;
+  }
+  .sidebar.hidden{
+    width:0; min-width:0; max-width:0;
+    padding:0; border-right-width:0;
+    overflow:hidden;
+  }
+
+  h3{margin:8px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#cbd5e1}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    background:var(--blue);color:white;border:0;border-radius:8px;padding:8px 10px;
+    font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{filter:brightness(1.1)}
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:#374151}
+  .btn.orange{background:var(--orange)}
+  .btn.red{background:var(--red)}
+  .btn.small{padding:4px 8px;font-size:12px;border-radius:6px}
+  .btn.icon{padding:6px 8px}
+  .badge{font-size:11px;padding:2px 6px;border-radius:999px;background:#111827;color:#d1d5db;border:1px solid #374151}
+  input[type="file"]{display:none}
+  .upload{display:flex;align-items:center;gap:8px}
+  .library, .layers{background:#0b0d12;border:1px solid #0f172a;border-radius:10px;padding:8px;max-height:22vh;overflow:auto}
+  .library::-webkit-scrollbar, .layers::-webkit-scrollbar{width:8px}
+  .library::-webkit-scrollbar-thumb, .layers::-webkit-scrollbar-thumb{background:#1f2937;border-radius:10px}
+  .media-item, .layer-item{
+    display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;border:1px solid #111827;
+  }
+  .layer-item.active{outline:2px solid #1f6feb}
+  .layer-controls{display:flex;gap:4px;align-items:center;margin-left:auto}
+  .spacer{flex:1}
+  .muted{color:#9ca3af}
+  .notice{font-size:12px;color:#cbd5e1;background:#0b0d12;border:1px dashed #374151;padding:8px;border-radius:8px}
+
+  /* Main area */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{
+    display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);
+    background:#0b0d12; position:relative; z-index:3; transition:opacity .2s ease;
+  }
+  .topbar.hidden{opacity:0; pointer-events:none}
+
+  #stage.stage{
+    position:relative;flex:1;min-height:0;background:black;cursor:crosshair;outline:0;
+  }
+  .stage.hide-cursor{ cursor:none }
+
+  canvas{display:block;width:100%;height:100%}
+  svg.overlay{
+    position:absolute; inset:0; width:100%; height:100%; pointer-events:none;
+  }
+
+  /* Overlay handles */
+  .overlay .edge{
+    fill:none; stroke:#6b7280; stroke-width:.6; vector-effect: non-scaling-stroke;
+  }
+  .overlay .handle{
+    fill:var(--handle); stroke:#111; stroke-width:.5; vector-effect: non-scaling-stroke;
+    pointer-events:all;
+  }
+  .overlay .handle.first{ fill:var(--handle-first) }
+
+  /* HUD */
+  .hud{
+    position:absolute; right:10px; bottom:10px; z-index:5;
+    background:rgba(0,0,0,.55); color:#e5e7eb; border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:8px 10px; font-size:12px; display:flex; gap:14px;
+    transition:opacity .2s ease;
+  }
+  .hud.hidden{opacity:0; pointer-events:none}
+
+  /* Fullscreen tweaks */
+  body.fs .topbar{ background:rgba(0,0,0,.4); border-bottom-color:rgba(255,255,255,.1) }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="row" style="align-items:center">
+      <strong>Project</strong>
+      <span class="spacer"></span>
+      <span id="version" class="badge">v1.3.0</span>
+    </div>
+    <div class="row">
+      <button id="saveProjectBtn" class="btn small">💾 Save</button>
+      <label class="btn small secondary" title="Load from .json">
+        📂 Load
+        <input id="loadProjectInput" type="file" accept="application/json" />
+      </label>
+      <span id="projHint" class="muted" style="font-size:12px"></span>
+    </div>
+
+    <h3>Media Library</h3>
+    <div class="upload row">
+      <label class="btn icon">
+        📥 Upload
+        <input id="fileInput" type="file" accept="image/*,video/*,.gif" multiple />
+      </label>
+      <span class="muted">Images, GIFs, Videos</span>
+    </div>
+    <div id="library" class="library"></div>
+
+    <div class="row" style="height:1px;background:#0f172a;margin:6px 0;flex:1 0 1px"></div>
+
+    <h3>Layer Type</h3>
+    <div class="row">
+      <button id="selectProjection" class="btn small">Projection</button>
+      <button id="selectMask" class="btn small orange">Mask</button>
+      <button id="selectMarker" class="btn small secondary">Marker</button>
+      <span class="spacer"></span>
+      <button id="newLayerBtn" class="btn">+ New Layer</button>
+    </div>
+    <div class="notice">
+      Click canvas to add points.
+      <div class="muted" style="margin-top:4px">
+        Projection: 4 points (clockwise). Mask: 3+ points, then press “Complete Mask”.
+        Marker: press and drag to scribble; color per layer.
+      </div>
+    </div>
+
+    <h3>Layers</h3>
+    <div id="layers" class="layers"></div>
+    <div class="row">
+      <button id="completeMaskBtn" class="btn small orange" title="Complete current mask">Complete Mask</button>
+      <button id="clearAllBtn" class="btn small red">Clear All Layers</button>
+    </div>
+
+    <div class="row" style="height:1px;background:#0f172a;margin:6px 0;flex:1 0 1px"></div>
+
+    <h3>View & Playback</h3>
+    <div class="row">
+      <button id="toggleHandlesBtn" class="btn small secondary" title="H">Toggle Handles</button>
+      <button id="playPauseAllBtn" class="btn small secondary" title="SPACE">Play/Pause All</button>
+      <button id="fullscreenBtn" class="btn small secondary" title="F">Fullscreen</button>
+    </div>
+    <div class="row">
+      <label class="muted">Marker Color</label>
+      <input id="markerColor" type="color" value="#ffeb3b" style="width:42px;height:28px;border:0;background:transparent; padding:0" />
+      <span class="muted" style="font-size:12px">applies to active Marker layer</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <strong>Canvas:</strong> <span id="canvasSize" class="muted">—</span>
+      <span class="spacer"></span>
+      <span id="activeInfo" class="muted">None</span>
+      <span class="spacer"></span>
+      <span id="statusText" class="muted">Idle — ready</span>
+    </div>
+
+    <div id="stage" class="stage">
+      <canvas id="canvas"></canvas>
+      <svg id="overlay" class="overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+      <div id="hud" class="hud">
+        <div><b>Status:</b> <span id="hudStatus">Ready</span></div>
+        <div><b>Active:</b> <span id="hudActive">None</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ==============================
+   Global State
+================================*/
+const APP_VERSION = '1.3.0';
+let uploadedFiles = []; // {id,name,type,kind:'image'|'video'|'gif', data?, url?, img?, video?, gifCanvas?, needsReupload?, playing?}
+let layers = [];        // {id,type:'projection'|'mask'|'marker', name, points:[{x,y}], strokes?, color?, mediaId?, mediaName?, playing?}
+let activeLayerId = null;
+let isDrawing = false;
+let layerType = 'projection';
+let handlesVisible = true;
+let controlsVisible = true;
+let videosPlaying = true;
+let mouseDrag = null; // {layerId, idx}
+let selectedMediaId = null;
+let drawingStroke = null; // active freehand stroke (for Marker)
+
+const SUBDIV = 10; // 10x10 subdivision
+const SHOW_MESH = false; // debug grid
+const TRI_EPS = 0.85;   // Triangle overlap to hide seams
+
+/* ==============================
+   Elements
+================================*/
+const els = {
+  sidebar: document.getElementById('sidebar'),
+  fileInput: document.getElementById('fileInput'),
+  library: document.getElementById('library'),
+  layers: document.getElementById('layers'),
+  canvas: document.getElementById('canvas'),
+  overlay: document.getElementById('overlay'),
+  stage: document.getElementById('stage'),
+  canvasSize: document.getElementById('canvasSize'),
+  statusText: document.getElementById('statusText'),
+  activeInfo: document.getElementById('activeInfo'),
+  hud: document.getElementById('hud'),
+  hudStatus: document.getElementById('hudStatus'),
+  hudActive: document.getElementById('hudActive'),
+  toggleHandlesBtn: document.getElementById('toggleHandlesBtn'),
+  playPauseAllBtn: document.getElementById('playPauseAllBtn'),
+  newLayerBtn: document.getElementById('newLayerBtn'),
+  selectProjection: document.getElementById('selectProjection'),
+  selectMask: document.getElementById('selectMask'),
+  selectMarker: document.getElementById('selectMarker'),
+  markerColor: document.getElementById('markerColor'),
+  completeMaskBtn: document.getElementById('completeMaskBtn'),
+  clearAllBtn: document.getElementById('clearAllBtn'),
+  fullscreenBtn: document.getElementById('fullscreenBtn'),
+  topbar: document.querySelector('.topbar'),
+  saveProjectBtn: document.getElementById('saveProjectBtn'),
+  loadProjectInput: document.getElementById('loadProjectInput'),
+  version: document.getElementById('version'),
+  projHint: document.getElementById('projHint'),
+};
+
+/* ==============================
+   Canvas setup
+================================*/
+const ctx = els.canvas.getContext('2d', { alpha:false, desynchronized:true });
+ctx.imageSmoothingEnabled = true;
+ctx.imageSmoothingQuality = 'high';
+
+function resizeCanvas(){
+  const r = els.stage.getBoundingClientRect();
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  els.canvas.width = Math.max(1, Math.floor(r.width * dpr));
+  els.canvas.height = Math.max(1, Math.floor(r.height * dpr));
+  els.canvas.style.width = r.width + 'px';
+  els.canvas.style.height = r.height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  els.canvasSize.textContent = `${Math.round(r.width)}×${Math.round(r.height)} @${dpr}x`;
+}
+
+/* ==============================
+   Helpers
+================================*/
+const uid = () => Math.random().toString(36).slice(2,10);
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const pctToPx = (p, size) => p/100*size;
+const pxToPct = (px, size) => clamp((px/size)*100, 0, 100);
+
+function status(s){ els.statusText.textContent = s; els.hudStatus.textContent = s; }
+function activeLayer(){ return layers.find(x=>x.id===activeLayerId) || null; }
+function activeInfo(){
+  const l = activeLayer();
+  let txt = 'None';
+  if (l){
+    if (l.type==='projection') txt = `${l.name} PROJECTION ${l.points.length}pt`;
+    else if (l.type==='mask') txt = `${l.name} MASK ${l.points.length}pt`;
+    else if (l.type==='marker') txt = `${l.name} MARKER`;
+  }
+  els.activeInfo.textContent = txt;
+  els.hudActive.textContent = txt;
+}
+
+function expandTri(tri, eps = TRI_EPS){
+  const cx = (tri[0].x + tri[1].x + tri[2].x) / 3;
+  const cy = (tri[0].y + tri[1].y + tri[2].y) / 3;
+  return tri.map(p => {
+    const vx = p.x - cx, vy = p.y - cy;
+    const len = Math.hypot(vx, vy) || 1;
+    return { x: p.x + (vx/len) * eps, y: p.y + (vy/len) * eps };
+  });
+}
+
+function blobToDataURL(blob){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* ==============================
+   Media Loading
+================================*/
+function renderLibrary(){
+  els.library.innerHTML = '';
+  for (const m of uploadedFiles){
+    const row = document.createElement('div');
+    row.className = 'media-item';
+
+    const pill = document.createElement('span');
+    pill.className = 'badge';
+    pill.textContent = m.kind.toUpperCase();
+    if (m.kind==='gif') pill.style.background = '#7c2d12';
+    if (m.needsReupload) pill.style.background = '#5b2334';
+
+    const name = document.createElement('span');
+    name.textContent = m.name + (m.needsReupload?' (relink needed)':'');
+    name.style.flex='1';
+
+    const useBtn = document.createElement('button');
+    useBtn.className = 'btn small secondary';
+    useBtn.textContent = 'Use';
+    useBtn.onclick = ()=>{ selectedMediaId = m.id; status(`Selected media: ${m.name}`); };
+
+    row.append(pill, name, useBtn);
+    els.library.appendChild(row);
+  }
+}
+
+// Try relink by filename for GIF/Video stubs
+function relinkStubIfAny(file, rec){
+  const stub = uploadedFiles.find(m => m.needsReupload && m.name === file.name && m.kind === rec.kind);
+  if (!stub) return null;
+  return stub;
+}
+
+els.fileInput.addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files||[]);
+  for (const file of files){
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    const isGif = file.type==='image/gif' || ext==='gif';
+    const isImage = file.type.startsWith('image/') && !isGif;
+    const isVideo = file.type.startsWith('video/');
+
+    try{
+      if (isImage){
+        const id = uid();
+        const dataURL = await blobToDataURL(file);
+        const img = new Image();
+        await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=dataURL; });
+        uploadedFiles.push({ id, name:file.name, kind:'image', type:file.type||'', data:dataURL, img, playing:true });
+      } else if (isGif){
+        const existing = relinkStubIfAny(file, {kind:'gif'});
+        const id = existing ? existing.id : uid();
+        const url = URL.createObjectURL(file);
+        const gifCanvas = document.createElement('canvas');
+        gifCanvas.width = 2; gifCanvas.height = 2;
+        await new Promise((res)=>{
+          gifler(url).get(a=>{
+            a.animateInCanvas(gifCanvas);
+            res();
+          });
+        });
+        const rec = { id, name:file.name, kind:'gif', type:file.type||'image/gif', url, gifCanvas, playing:true };
+        if (existing){
+          Object.assign(existing, rec);
+          existing.needsReupload = false;
+        } else {
+          uploadedFiles.push(rec);
+        }
+      } else if (isVideo){
+        const existing = relinkStubIfAny(file, {kind:'video'});
+        const id = existing ? existing.id : uid();
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.src = url; video.loop = true; video.muted = true; // default muted
+        await video.play().catch(()=>{ /* will start on user action */ });
+        const rec = { id, name:file.name, kind:'video', type:file.type||'video/*', url, video, playing:true };
+        if (existing){
+          Object.assign(existing, rec);
+          existing.needsReupload = false;
+        } else {
+          uploadedFiles.push(rec);
+        }
+      }
+    }catch(err){
+      console.error('Upload error', err);
+      status('Upload failed for ' + file.name);
+    }
+  }
+  renderLibrary();
+});
+
+/* ==============================
+   Layers UI helpers
+================================*/
+function layerDisplayName(l){
+  if (l.type==='mask') return 'Mask';
+  if (l.type==='marker') return 'Marker';
+  const media = uploadedFiles.find(m=>m.id===l.mediaId);
+  const name = media?.name || l.mediaName || '(none)';
+  return `Projection — ${name}`;
+}
+
+function moveLayer(id, dir){
+  const i = layers.findIndex(x=>x.id===id);
+  if (i<0) return;
+  const j = i + dir;
+  if (j<0 || j>=layers.length) return;
+  const [item] = layers.splice(i,1);
+  layers.splice(j,0,item);
+  renderLayersList();
+}
+
+function selectLayer(id){
+  activeLayerId = id;
+  const l = activeLayer();
+  if (l?.type==='marker' && els.markerColor){
+    els.markerColor.value = l.color || '#ffeb3b';
+  }
+  renderLayersList();
+  drawHandles();
+}
+
+function renderLayersList(){
+  els.layers.innerHTML = '';
+  layers.forEach((l, idx)=>{
+    const row = document.createElement('div');
+    row.className = 'layer-item' + (l.id===activeLayerId ? ' active' : '');
+
+    const order = document.createElement('span');
+    order.className = 'badge';
+    order.textContent = idx.toString();
+
+    const lbl = document.createElement('span');
+    lbl.textContent = layerDisplayName(l);
+    lbl.style.flex = '1';
+
+    const controls = document.createElement('div');
+    controls.className = 'layer-controls';
+
+    const up = document.createElement('button');
+    up.className = 'btn small secondary';
+    up.title = 'Move up (render later) ▲';
+    up.textContent = '▲';
+    up.disabled = (idx === layers.length-1);
+    up.onclick = (e)=>{ e.stopPropagation(); moveLayer(l.id, +1); };
+
+    const down = document.createElement('button');
+    down.className = 'btn small secondary';
+    down.title = 'Move down (render earlier) ▼';
+    down.textContent = '▼';
+    down.disabled = (idx === 0);
+    down.onclick = (e)=>{ e.stopPropagation(); moveLayer(l.id, -1); };
+
+    const del = document.createElement('button');
+    del.className = 'btn small red';
+    del.title = 'Delete layer';
+    del.textContent = '✖';
+    del.onclick = (e)=>{ e.stopPropagation(); deleteLayer(l.id); };
+
+    controls.append(up, down, del);
+
+    if (l.type==='marker'){
+      const color = document.createElement('input');
+      color.type = 'color';
+      color.value = l.color || '#ffeb3b';
+      color.title = 'Marker color';
+      color.style.width='32px'; color.style.height='22px'; color.style.border='0'; color.style.background='transparent';
+      color.oninput = (e)=>{ l.color = e.target.value; if (activeLayerId===l.id && els.markerColor) els.markerColor.value = l.color; };
+      controls.prepend(color);
+    }
+
+    row.append(order, lbl, controls);
+    row.onclick = ()=> selectLayer(l.id);
+
+    els.layers.appendChild(row);
+  });
+}
+
+function deleteLayer(id){
+  layers = layers.filter(l=>l.id!==id);
+  if (activeLayerId===id) activeLayerId = null;
+  renderLayersList(); drawHandles();
+}
+
+/* ==============================
+   Layer creation
+================================*/
+els.selectProjection.onclick = ()=>{ layerType='projection'; status('Layer type: Projection'); };
+els.selectMask.onclick = ()=>{ layerType='mask'; status('Layer type: Mask'); };
+els.selectMarker.onclick = ()=>{ layerType='marker'; status('Layer type: Marker (freehand)'); };
+
+els.newLayerBtn.onclick = ()=>{
+  const l = {
+    id: uid(),
+    type: layerType,
+    name: layerType==='mask' ? 'Mask' : (layerType==='marker' ? 'Marker' : 'Projection'),
+    points: [],
+    strokes: layerType==='marker' ? [] : undefined,
+    color: layerType==='marker' ? (els.markerColor?.value || '#ffeb3b') : undefined,
+    mediaId: layerType==='projection' ? (selectedMediaId||null) : null,
+    mediaName: layerType==='projection' ? ((uploadedFiles.find(m=>m.id===selectedMediaId)?.name) || null) : null,
+    playing: true
+  };
+  layers.push(l);
+  activeLayerId = l.id;
+  isDrawing = (layerType!=='marker');
+  renderLayersList(); drawHandles();
+  status(`New ${l.type}${l.type==='marker' ? ' — press & drag to scribble' : ' — click to add points'}`);
+};
+
+els.completeMaskBtn.onclick = ()=>{ isDrawing=false; status('Mask completed'); };
+els.clearAllBtn.onclick = ()=>{ layers=[]; activeLayerId=null; renderLayersList(); drawHandles(); };
+
+/* ==============================
+   Handles (SVG)
+================================*/
+function svgClear(){ els.overlay.innerHTML = ''; }
+
+function drawHandles(){
+  svgClear();
+  if (!handlesVisible) return;
+  const svg = els.overlay;
+
+  layers.forEach(layer=>{
+    if (layer.type==='marker') return; // no handles for marker
+
+    const group = document.createElementNS('http://www.w3.org/2000/svg','g');
+    group.setAttribute('data-layer', layer.id);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('class','edge');
+    path.setAttribute('data-layer', layer.id);
+    svg.appendChild(group);
+    group.appendChild(path);
+
+    function makeD(){
+      const pts = layer.points;
+      if (!pts || pts.length===0) return '';
+      let d = `M ${pts[0].x} ${pts[0].y}`;
+      for (let i=1;i<pts.length;i++) d += ` L ${pts[i].x} ${pts[i].y}`;
+      if (layer.type==='mask' && pts.length>=3) d += ' Z';
+      return d;
+    }
+    path.setAttribute('d', makeD());
+
+    // Handles
+    layer.points.forEach((p,idx)=>{
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx', p.x);
+      c.setAttribute('cy', p.y);
+      c.setAttribute('r', 1.2);
+      c.setAttribute('class', 'handle' + (idx===0?' first':''));
+      c.dataset.layer = layer.id;
+      c.dataset.idx = idx;
+      c.style.cursor = 'grab';
+
+      c.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        mouseDrag = { layerId: layer.id, idx };
+        c.setPointerCapture?.(e.pointerId);
+      });
+
+      c.addEventListener('pointermove', (e)=>{
+        if (!mouseDrag || mouseDrag.layerId!==layer.id || mouseDrag.idx!==idx) return;
+        const r = els.canvas.getBoundingClientRect();
+        const x = pxToPct(e.clientX - r.left, r.width);
+        const y = pxToPct(e.clientY - r.top, r.height);
+        layer.points[idx] = {x,y};
+        c.setAttribute('cx', x);
+        c.setAttribute('cy', y);
+        path.setAttribute('d', makeD());
+      });
+
+      c.addEventListener('pointerup', ()=>{
+        mouseDrag = null;
+      });
+
+      group.appendChild(c);
+    });
+  });
+}
+
+/* ==============================
+   Project Save/Load
+================================*/
+function buildProjectJSON(){
+  const media = uploadedFiles.map(m=>{
+    const base = {id:m.id, name:m.name, kind:m.kind, type:m.type||''};
+    if (m.kind==='image'){
+      return {...base, data: m.data||null};
+    } else {
+      return {...base, filename: m.name}; // gifs/videos re-upload to relink
+    }
+  });
+  const savedLayers = layers.map(l=>({
+    id: l.id,
+    type: l.type,
+    name: l.name,
+    points: Array.isArray(l.points) ? l.points.map(p=>({x:p.x, y:p.y})) : [],
+    strokes: l.type==='marker' && Array.isArray(l.strokes)
+             ? l.strokes.map(st => st.map(p=>({x:p.x, y:p.y})))
+             : undefined,
+    color: l.type==='marker' ? (l.color || '#ffeb3b') : undefined,
+    mediaId: l.mediaId || null,
+    mediaName: l.mediaName || null,
+    playing: l.playing!==false
+  }));
+  return {
+    version: APP_VERSION,
+    savedAt: new Date().toISOString(),
+    media,
+    layers: savedLayers
+  };
+}
+
+function download(filename, text){
+  const blob = new Blob([text], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function saveProject(){
+  const project = buildProjectJSON();
+  const fname = `projection-project-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
+  download(fname, JSON.stringify(project, null, 2));
+  status('Project saved');
+}
+
+async function loadProjectFromObject(obj){
+  uploadedFiles = [];
+  layers = [];
+  activeLayerId = null;
+
+  // Restore media
+  for (const m of (obj.media||[])){
+    if (m.kind==='image' && m.data){
+      const rec = {id:m.id, name:m.name, kind:'image', type:m.type||'', playing:true, data:m.data};
+      rec.img = new Image();
+      await new Promise((res,rej)=>{ rec.img.onload=res; rec.img.onerror=rej; rec.img.src=m.data; });
+      uploadedFiles.push(rec);
+    } else if (m.kind==='gif'){
+      uploadedFiles.push({
+        id:m.id, name:m.filename||m.name, kind:'gif', type:m.type||'image/gif',
+        playing:true, needsReupload:true
+      });
+    } else if (m.kind==='video'){
+      uploadedFiles.push({
+        id:m.id, name:m.filename||m.name, kind:'video', type:m.type||'video/*',
+        playing:true, needsReupload:true
+      });
+    }
+  }
+
+  // Restore layers
+  layers = (obj.layers||[]).map(l=>{
+    if (l.type==='marker'){
+      return {
+        id: l.id || uid(),
+        type: 'marker',
+        name: 'Marker',
+        points: [],
+        strokes: Array.isArray(l.strokes) ? l.strokes.map(st => Array.isArray(st) ? st.map(p=>({x:+p.x, y:+p.y})) : []) : [],
+        color: l.color || '#ffeb3b',
+        mediaId: null, mediaName: null,
+        playing: true
+      };
+    }
+    return {
+      id: l.id || uid(),
+      type: l.type==='mask' ? 'mask' : 'projection',
+      name: (l.type==='mask' ? 'Mask' : 'Projection'),
+      points: Array.isArray(l.points) ? l.points.map(p=>({x:+p.x, y:+p.y})) : [],
+      mediaId: l.mediaId || null,
+      mediaName: l.mediaName || null,
+      playing: l.playing!==false
+    };
+  });
+
+  renderLibrary();
+  renderLayersList();
+  drawHandles();
+
+  if (els.projHint) {
+    els.projHint.textContent = obj.savedAt ? `Loaded: ${new Date(obj.savedAt).toLocaleString()}` : '';
+  }
+  status('Project loaded');
+}
+
+els.saveProjectBtn.onclick = saveProject;
+
+els.loadProjectInput.addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0];
+  if (!f) return;
+  try{
+    const txt = await f.text();
+    const obj = JSON.parse(txt);
+    await loadProjectFromObject(obj);
+  }catch(err){
+    console.error('Load project error', err);
+    status('Load failed: ' + err.message);
+  } finally {
+    e.target.value = '';
+  }
+});
+
+/* ==============================
+   Input: add points / marker strokes
+================================*/
+els.stage.addEventListener('pointerdown', (e)=>{
+  const l = activeLayer();
+  if (!l) return;
+
+  const r = els.canvas.getBoundingClientRect();
+  const x = pxToPct(e.clientX - r.left, r.width);
+  const y = pxToPct(e.clientY - r.top, r.height);
+
+  if (l.type==='marker'){
+    const stroke = [{x, y}];
+    l.strokes.push(stroke);
+    drawingStroke = stroke;
+    els.stage.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    return;
+  }
+
+  if (!isDrawing) return;
+  if (l.type==='projection'){
+    if (l.points.length<4){
+      l.points.push({x,y});
+      if (l.points.length===4){ isDrawing=false; status('Projection quad set'); }
+    }
+  } else if (l.type==='mask'){
+    l.points.push({x,y}); // complete with button
+  }
+  drawHandles();
+});
+
+els.stage.addEventListener('pointermove', (e)=>{
+  if (!drawingStroke) return;
+  const r = els.canvas.getBoundingClientRect();
+  const x = pxToPct(e.clientX - r.left, r.width);
+  const y = pxToPct(e.clientY - r.top, r.height);
+  drawingStroke.push({x, y});
+});
+
+function endStroke(){
+  drawingStroke = null;
+}
+els.stage.addEventListener('pointerup', endStroke);
+els.stage.addEventListener('pointercancel', endStroke);
+
+/* ==============================
+   Keyboard shortcuts
+================================*/
+window.addEventListener('keydown', (e)=>{
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveProject(); }
+  else if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o'){ e.preventDefault(); els.loadProjectInput.click(); }
+  else if (e.code==='KeyH'){ handlesVisible=!handlesVisible; drawHandles(); }
+  else if (e.code==='KeyC'){ controlsVisible=!controlsVisible; els.sidebar.classList.toggle('hidden', !controlsVisible); resizeCanvas(); }
+  else if (e.code==='KeyF'){ toggleFullscreen(); }
+  else if (e.code==='Space'){ e.preventDefault(); togglePlayAll(); }
+  else if (e.code==='Escape'){ isDrawing=false; }
+  else if (e.code==='Delete'){ if (activeLayerId){ deleteLayer(activeLayerId); } }
+  else if (e.altKey && e.code==='ArrowUp' && activeLayerId){ moveLayer(activeLayerId, +1); }
+  else if (e.altKey && e.code==='ArrowDown' && activeLayerId){ moveLayer(activeLayerId, -1); }
+});
+
+/* ==============================
+   Rendering
+================================*/
+function isMediaReady(m){
+  if (m.kind==='image') return m.img && m.img.naturalWidth>0;
+  if (m.kind==='gif') return m.gifCanvas && m.gifCanvas.width>0;
+  if (m.kind==='video') return m.video && m.video.videoWidth>0;
+  return false;
+}
+
+function drawMask(pointsPct, rect){
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  pointsPct.forEach((p,idx)=>{
+    const x = pctToPx(p.x, rect.width);
+    const y = pctToPx(p.y, rect.height);
+    if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = 'black';
+  ctx.fill();
+  ctx.restore();
+}
+
+function bilerp(quad, u, v){
+  // quad points: [p0, p1, p2, p3] clockwise
+  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
+  const x = (1-u)*(1-v)*p0.x + u*(1-v)*p1.x + u*v*p2.x + (1-u)*v*p3.x;
+  const y = (1-u)*(1-v)*p0.y + u*(1-v)*p1.y + u*v*p2.y + (1-u)*v*p3.y;
+  return {x,y};
+}
+
+function affineFromTriangles(src, dst){
+  // src, dst: [{x,y},{x,y},{x,y}]
+  const x0=src[0].x, y0=src[0].y, x1=src[1].x, y1=src[1].y, x2=src[2].x, y2=src[2].y;
+  const u0=dst[0].x, v0=dst[0].y, u1=dst[1].x, v1=dst[1].y, u2=dst[2].x, v2=dst[2].y;
+
+  const denom = (x0*(y1 - y2) + x1*(y2 - y0) + x2*(y0 - y1));
+  if (Math.abs(denom) < 1e-6) return null;
+
+  const a = (u0*(y1 - y2) + u1*(y2 - y0) + u2*(y0 - y1)) / denom;
+  const b = (u0*(x2 - x1) + u1*(x0 - x2) + u2*(x1 - x0)) / denom;
+  const c = (u0*(x1*y2 - x2*y1) + u1*(x2*y0 - x0*y2) + u2*(x0*y1 - x1*y0)) / denom;
+
+  const d = (v0*(y1 - y2) + v1*(y2 - y0) + v2*(y0 - y1)) / denom;
+  const e = (v0*(x2 - x1) + v1*(x0 - x2) + v2*(x1 - x0)) / denom;
+  const f = (v0*(x1*y2 - x2*y1) + v1*(x2*y0 - x0*y2) + v2*(x0*y1 - x1*y0)) / denom;
+
+  // Canvas setTransform uses [a, d, b, e, c, f] mapped to matrix:
+  // [ a  b  c ]
+  // [ d  e  f ]
+  // [ 0  0  1 ]
+  return [a, d, b, e, c, f];
+}
+
+function drawTriangle(source, srcTri, dstTri){
+  const m = affineFromTriangles(srcTri, dstTri);
+  if(!m) return;
+
+  const dst = expandTri(dstTri);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.beginPath();
+  ctx.moveTo(dst[0].x, dst[0].y);
+  ctx.lineTo(dst[1].x, dst[1].y);
+  ctx.lineTo(dst[2].x, dst[2].y);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+  ctx.drawImage(source, 0, 0);
+  ctx.restore();
+}
+
+function drawProjection(layer, media, rect){
+  const quad = layer.points.map(p=>({
+    x: pctToPx(p.x, rect.width),
+    y: pctToPx(p.y, rect.height)
+  }));
+
+  // Source grid (normalized 0..1)
+  const p00 = quad[0], p10 = quad[1], p11 = quad[2], p01 = quad[3];
+
+  const source = media.kind==='gif' ? media.gifCanvas
+                : media.kind==='video' ? media.video
+                : media.img;
+
+  // Split into SUBDIV tiles, each into 2 triangles, approximate bilinear warp
+  for (let i=0; i<SUBDIV; i++){
+    const u0 = i/SUBDIV, u1 = (i+1)/SUBDIV;
+    for (let j=0; j<SUBDIV; j++){
+      const v0 = j/SUBDIV, v1 = (j+1)/SUBDIV;
+
+      const q00 = bilerp([p00,p10,p11,p01], u0, v0);
+      const q10 = bilerp([p00,p10,p11,p01], u1, v0);
+      const q11 = bilerp([p00,p10,p11,p01], u1, v1);
+      const q01 = bilerp([p00,p10,p11,p01], u0, v1);
+
+      const sx = source.videoWidth || source.width;
+      const sy = source.videoHeight || source.height;
+
+      const s00 = {x: u0*sx, y: v0*sy};
+      const s10 = {x: u1*sx, y: v0*sy};
+      const s11 = {x: u1*sx, y: v1*sy};
+      const s01 = {x: u0*sx, y: v1*sy};
+
+      // triangles
+      drawTriangle(source, [s00,s10,s11], [q00,q10,q11]);
+      drawTriangle(source, [s00,s11,s01], [q00,q11,q01]);
+
+      if (SHOW_MESH){
+        ctx.save();
+        ctx.strokeStyle = 'rgba(147,197,253,.35)';
+        ctx.lineWidth = .5;
+        ctx.beginPath();
+        ctx.moveTo(q00.x,q00.y); ctx.lineTo(q10.x,q10.y); ctx.lineTo(q11.x,q11.y); ctx.lineTo(q01.x,q01.y); ctx.closePath();
+        ctx.stroke(); ctx.restore();
+      }
+    }
+  }
+}
+
+function drawMarker(layer, rect){
+  if (!Array.isArray(layer.strokes) || layer.strokes.length===0) return;
+  ctx.save();
+  ctx.strokeStyle = layer.color || '#ffeb3b';
+  ctx.lineWidth = 3.5; // screen pixels
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (const s of layer.strokes){
+    if (!s || s.length<2) continue;
+    ctx.beginPath();
+    let p0 = s[0];
+    ctx.moveTo(pctToPx(p0.x, rect.width), pctToPx(p0.y, rect.height));
+    for (let i=1;i<s.length;i++){
+      const p = s[i];
+      ctx.lineTo(pctToPx(p.x, rect.width), pctToPx(p.y, rect.height));
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function render(){
+  requestAnimationFrame(render);
+  activeInfo();
+
+  ctx.save();
+  const r = els.canvas.getBoundingClientRect();
+  ctx.clearRect(0,0,r.width,r.height);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0,0,r.width,r.height);
+
+  // Draw layers in array order (this is Z-order)
+  for (const layer of layers){
+    if (layer.type==='mask' && layer.points.length>=3){
+      drawMask(layer.points, r);
+    } else if (layer.type==='projection' && layer.points.length===4 && layer.mediaId){
+      const media = uploadedFiles.find(m=>m.id===layer.mediaId);
+      if (media && isMediaReady(media)) drawProjection(layer, media, r);
+    } else if (layer.type==='marker'){
+      drawMarker(layer, r);
+    }
+  }
+
+  ctx.restore();
+}
+
+/* ==============================
+   Playback controls
+================================*/
+function togglePlayAll(){
+  videosPlaying = !videosPlaying;
+  uploadedFiles.forEach(m=>{
+    if (m.kind==='video' && m.video){
+      if (videosPlaying){
+        m.video.play().catch(()=>{});
+      } else {
+        m.video.pause();
+      }
+    }
+  });
+  status(videosPlaying ? 'Play all' : 'Pause all');
+}
+els.playPauseAllBtn.onclick = togglePlayAll;
+
+/* ==============================
+   Fullscreen UX with auto-hide HUD
+================================*/
+let inFullscreen = false;
+let hudHideTimer = null;
+const HUD_HIDE_DELAY = 2000; // ms
+
+function showHud(){
+  els.topbar.classList.remove('hidden');
+  els.hud.classList.remove('hidden');
+  els.stage.classList.remove('hide-cursor');
+}
+function hideHud(){
+  els.topbar.classList.add('hidden');
+  els.hud.classList.add('hidden');
+  els.stage.classList.add('hide-cursor');
+}
+function clearHudHideTimer(){
+  if (hudHideTimer){ clearTimeout(hudHideTimer); hudHideTimer = null; }
+}
+function startHudHideTimer(){
+  clearHudHideTimer();
+  hudHideTimer = setTimeout(()=>{
+    if (inFullscreen) hideHud();
+  }, HUD_HIDE_DELAY);
+}
+
+function updateFullscreenState(){
+  inFullscreen = !!document.fullscreenElement;
+  document.body.classList.toggle('fs', inFullscreen);
+  if (inFullscreen){
+    showHud();
+    startHudHideTimer();
+  } else {
+    clearHudHideTimer();
+    showHud(); // ensure visible when exiting
+  }
+}
+
+function handleUserActivity(){
+  if (!inFullscreen) return;
+  showHud();
+  startHudHideTimer();
+}
+
+function toggleFullscreen(){
+  if (!document.fullscreenElement){
+    els.stage.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+
+// Events
+document.addEventListener('fullscreenchange', updateFullscreenState);
+document.addEventListener('mousemove', handleUserActivity, {passive:true});
+document.addEventListener('touchstart', handleUserActivity, {passive:true});
+document.addEventListener('keydown', handleUserActivity);
+els.fullscreenBtn.onclick = ()=> toggleFullscreen();
+
+/* ==============================
+   Marker color picker wiring
+================================*/
+els.markerColor?.addEventListener('input', (e)=>{
+  const l = activeLayer();
+  if (l && l.type==='marker'){
+    l.color = e.target.value;
+  }
+});
+
+/* ==============================
+   Init
+================================*/
+function init(){
+  els.version.textContent = 'v' + APP_VERSION;
+  renderLibrary();
+  renderLayersList();
+  drawHandles();
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  render();
+  status('Idle — ready');
+}
+init();
+</script>
+</body>
+</html>
