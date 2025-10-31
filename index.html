@@ -97,7 +97,9 @@
     pointer-events:all;
   }
   .overlay .handle.first{ fill:var(--handle-first) }
-
+  .overlay .handle.center{
+    fill:#3b82f6 !important; /* blue - override any other fills */
+  }
   /* HUD */
   .hud{
     position:absolute; right:10px; bottom:10px; z-index:5;
@@ -589,6 +591,11 @@ function drawHandles(){
         c.setAttribute('cx', x);
         c.setAttribute('cy', y);
         path.setAttribute('d', makeD());
+        
+        // Update center handle if this is a projection layer
+        if (layer.type === 'projection' && layer.points.length === 4) {
+          updateCenterHandle(layer.id);
+        }
       });
 
       c.addEventListener('pointerup', ()=>{
@@ -597,7 +604,97 @@ function drawHandles(){
 
       group.appendChild(c);
     });
+
+    // Add center-of-mass handle for projection layers with 4 points
+    if (layer.type === 'projection' && layer.points.length === 4) {
+      const cx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
+      const cy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
+
+      const centerHandle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      centerHandle.setAttribute('cx', cx);
+      centerHandle.setAttribute('cy', cy);
+      centerHandle.setAttribute('r', 0.5); // slightly smaller
+      centerHandle.setAttribute('class', 'handle center');
+      centerHandle.setAttribute('fill', '#3b82f6'); // blue color
+      centerHandle.setAttribute('stroke', '#111');
+      centerHandle.setAttribute('stroke-width', '0.5');
+      centerHandle.style.vectorEffect = 'non-scaling-stroke';
+      centerHandle.dataset.layer = layer.id;
+      centerHandle.dataset.isCenter = 'true';
+      centerHandle.style.cursor = 'move';
+
+      let dragStart = null;
+
+      centerHandle.addEventListener('pointerdown', (e)=>{
+        e.preventDefault();
+        const r = els.canvas.getBoundingClientRect();
+        dragStart = {
+          x: pxToPct(e.clientX - r.left, r.width),
+          y: pxToPct(e.clientY - r.top, r.height),
+          points: layer.points.map(p => ({x: p.x, y: p.y})) // copy initial positions
+        };
+        mouseDrag = { layerId: layer.id, isCenter: true };
+        centerHandle.setPointerCapture?.(e.pointerId);
+      });
+
+      centerHandle.addEventListener('pointermove', (e)=>{
+        if (!mouseDrag || mouseDrag.layerId!==layer.id || !mouseDrag.isCenter || !dragStart) return;
+        
+        const r = els.canvas.getBoundingClientRect();
+        const currentX = pxToPct(e.clientX - r.left, r.width);
+        const currentY = pxToPct(e.clientY - r.top, r.height);
+        
+        const deltaX = currentX - dragStart.x;
+        const deltaY = currentY - dragStart.y;
+        
+        // Move all points by the same delta
+        layer.points.forEach((p, i) => {
+          p.x = clamp(dragStart.points[i].x + deltaX, 0, 100);
+          p.y = clamp(dragStart.points[i].y + deltaY, 0, 100);
+        });
+        
+        // Update center handle position
+        const newCx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
+        const newCy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
+        centerHandle.setAttribute('cx', newCx);
+        centerHandle.setAttribute('cy', newCy);
+        
+        // Update path and corner handles
+        path.setAttribute('d', makeD());
+        const handles = group.querySelectorAll('.handle:not(.center)');
+        handles.forEach((h, i) => {
+          h.setAttribute('cx', layer.points[i].x);
+          h.setAttribute('cy', layer.points[i].y);
+        });
+      });
+
+      centerHandle.addEventListener('pointerup', ()=>{
+        mouseDrag = null;
+        dragStart = null;
+      });
+
+      centerHandle.addEventListener('pointercancel', ()=>{
+        mouseDrag = null;
+        dragStart = null;
+      });
+
+      group.appendChild(centerHandle);
+    }
   });
+  
+  // Helper function to update center handle position
+  function updateCenterHandle(layerId) {
+    const centerHandle = svg.querySelector(`circle[data-layer="${layerId}"][data-is-center="true"]`);
+    if (!centerHandle) return;
+    
+    const layer = layers.find(l => l.id === layerId);
+    if (!layer || layer.points.length !== 4) return;
+    
+    const cx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
+    const cy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
+    centerHandle.setAttribute('cx', cx);
+    centerHandle.setAttribute('cy', cy);
+  }
 }
 
 /* ==============================
