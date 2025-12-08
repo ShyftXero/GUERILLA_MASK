@@ -1,1167 +1,1666 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>GUERILLA_MASK</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUERILLA_MASK</title>
+    <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<!-- Only external dep (for GIFs) -->
-<script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
 
-<style>
-  :root{
-    --bg:#0f1115;
-    --panel:#1a1a1a;
-    --text:#e5e7eb;
-    --muted:#9ca3af;
-    --blue:#2563eb;
-    --orange:#d97706;
-    --red:#ef4444;
-    --line:#334155;
-    --handle:#fbbf24;
-    --handle-first:#ef4444;
-  }
+        #app {
+            display: flex;
+            height: 100vh;
+        }
 
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.35 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+        #sidebar {
+            width: 350px;
+            height: 100%;
+            background: #2a2a2a;
+            border-right: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
 
-  .app{display:flex;height:100%;overflow:hidden}
+        .sidebar-section {
+            border-bottom: 1px solid #3a3a3a;
+            padding: 15px;
+        }
 
-  /* Sidebar collapses width so main grows */
-  .sidebar{
-    width:340px; min-width:260px; max-width:520px;
-    background:var(--panel); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; gap:10px; padding:12px 12px 16px;
-    transition: width .28s ease, min-width .28s ease, max-width .28s ease,
-                padding .28s ease, border-width .28s ease;
-    will-change: width;
-  }
-  .sidebar.hidden{
-    width:0; min-width:0; max-width:0;
-    padding:0; border-right-width:0;
-    overflow:hidden;
-  }
+        .sidebar-section h3 {
+            margin-bottom: 10px;
+            color: #4a9eff;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
 
-  h3{margin:8px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#cbd5e1}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .btn{
-    background:var(--blue);color:white;border:0;border-radius:8px;padding:8px 10px;
-    font-weight:600;cursor:pointer;transition:.15s;
-  }
-  .btn:hover{filter:brightness(1.1)}
-  .btn:active{transform:translateY(1px)}
-  .btn.secondary{background:#374151}
-  .btn.orange{background:var(--orange)}
-  .btn.red{background:var(--red)}
-  .btn.small{padding:4px 8px;font-size:12px;border-radius:6px}
-  .btn.icon{padding:6px 8px}
-  .badge{font-size:11px;padding:2px 6px;border-radius:999px;background:#111827;color:#d1d5db;border:1px solid #374151}
-  input[type="file"]{display:none}
-  .upload{display:flex;align-items:center;gap:8px}
-  .library, .layers{background:#0b0d12;border:1px solid #0f172a;border-radius:10px;padding:8px;max-height:22vh;overflow:auto}
-  .library::-webkit-scrollbar, .layers::-webkit-scrollbar{width:8px}
-  .library::-webkit-scrollbar-thumb, .layers::-webkit-scrollbar-thumb{background:#1f2937;border-radius:10px}
-  .media-item, .layer-item{
-    display:flex;align-items:center;gap:8px;padding:6px;border-radius:8px;border:1px solid #111827;
-  }
-  .layer-item.active{outline:2px solid #1f6feb}
-  .layer-controls{display:flex;gap:4px;align-items:center;margin-left:auto}
-  .spacer{flex:1}
-  .muted{color:#9ca3af}
-  .notice{font-size:12px;color:#cbd5e1;background:#0b0d12;border:1px dashed #374151;padding:8px;border-radius:8px}
+        #layerList {
+          flex: 1; 
+          height: 100%;
+          min-height: 100%;
+          overflow-y: scroll; 
+          margin-top: 10px;
+          margin-bottom: 100px;
+        }
 
-  /* Main area */
-  .main{flex:1;display:flex;flex-direction:column;min-width:0}
-  .topbar{
-    display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);
-    background:#0b0d12; position:relative; z-index:3; transition:opacity .2s ease;
-  }
-  .topbar.hidden{opacity:0; pointer-events:none}
+        #dropZone {
+            border: 2px dashed #4a9eff;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #333;
+        }
 
-  #stage.stage{
-    position:relative;flex:1;min-height:0;background:black;cursor:crosshair;outline:0;
-  }
-  .stage.hide-cursor{ cursor:none }
+        #dropZone:hover, #dropZone.drag-over {
+            background: #3a3a3a;
+            border-color: #6ab7ff;
+        }
 
-  canvas{display:block;width:100%;height:100%}
-  svg.overlay{
-    position:absolute; inset:0; width:100%; height:100%; pointer-events:none;
-  }
+        #mediaList, #layerList {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
 
-  /* Overlay handles */
-  .overlay .edge{
-    fill:none; stroke:#6b7280; stroke-width:6; vector-effect: non-scaling-stroke;
-  }
-  .overlay .handle{
-    fill:var(--handle); stroke:#111; stroke-width:.5; vector-effect: non-scaling-stroke;
-    pointer-events:all;
-  }
-  .overlay .handle.first{ fill:var(--handle-first) }
-  .overlay .handle.center{
-    fill:#3b82f6 !important; /* blue - override any other fills */
-  }
-  /* HUD */
-  .hud{
-    position:absolute; right:10px; bottom:10px; z-index:5;
-    background:rgba(0,0,0,.55); color:#e5e7eb; border:1px solid rgba(255,255,255,.12);
-    border-radius:10px; padding:8px 10px; font-size:12px; display:flex; gap:14px;
-    transition:opacity .2s ease;
-  }
-  .hud.hidden{opacity:0; pointer-events:none}
+        .media-item, .layer-item {
+            padding: 10px;
+            background: #333;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-  /* Fullscreen tweaks */
-  body.fs .topbar{ background:rgba(0,0,0,.4); border-bottom-color:rgba(255,255,255,.1) }
-</style>
+        .media-item:hover, .layer-item:hover {
+            background: #3a3a3a;
+        }
+
+        .layer-item.selected {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .layer-item.disabled {
+            opacity: 0.5;
+        }
+
+        .layer-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background: #6ab7ff;
+        }
+
+        button.small {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+
+        button.danger {
+            background: #ff4a4a;
+        }
+
+        button.danger:hover {
+            background: #ff6a6a;
+        }
+
+        button.orange {
+            background: #d97706;
+        }
+
+        button.orange:hover {
+            background: #f59e0b;
+        }
+
+        #canvasContainer {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #projectionCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #svgOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #svgOverlay.hidden {
+            display: none;
+        }
+
+        .handle {
+            cursor: move;
+            pointer-events: auto;
+        }
+
+        .handle circle {
+            fill: #4a9eff;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .handle:hover circle {
+            fill: #6ab7ff;
+        }
+
+        .handle.center-of-mass circle {
+            fill: #ff6b35;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .handle.first circle {
+            fill: #ef4444;
+        }
+
+        .quad-outline, .mask-outline {
+            fill: none;
+            stroke: #4a9eff;
+            stroke-width: 2;
+            pointer-events: auto;
+            cursor: move;
+            transition: stroke 0.2s, stroke-width 0.2s;
+        }
+
+        .quad-outline.selected, .mask-outline.selected {
+            stroke: #fbbf24;
+            stroke-width: 4;
+        }
+
+        .mask-outline {
+            stroke: #d97706;
+        }
+
+        .mask-outline.selected {
+            stroke: #f59e0b;
+            stroke-width: 4;
+        }
+
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 200;
+        }
+
+        #hud.visible {
+            opacity: 1;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .layer-type-selector {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .notice {
+            font-size: 11px;
+            padding: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 10px;
+            color: #9ca3af;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a9eff;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6ab7ff;
+        }
+
+        .layer-name {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .layer-info {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .z-index-controls {
+            display: flex;
+            gap: 2px;
+            margin-right: 5px;
+        }
+
+        #loadProjectModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #loadProjectModal.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #4a9eff;
+        }
+
+        .media-upload-item {
+            background: #333;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-upload-item.complete {
+            background: #1a4d2e;
+        }
+
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(74, 158, 255, 0.8);
+        }
+
+        #fullscreenBtn:hover {
+            background: rgba(106, 183, 255, 0.9);
+        }
+
+        #toggleHandlesBtn {
+            position: absolute;
+            top: 10px;
+            right: 120px;
+            z-index: 100;
+            background: rgba(74, 158, 255, 0.8);
+        }
+
+        #toggleHandlesBtn:hover {
+            background: rgba(106, 183, 255, 0.9);
+        }
+
+        
+
+        #sidebarResizer {
+            position: absolute;
+            right: -2px; /* Changed from 0 */
+            top: 0;
+            bottom: 0;
+            width: 8px; /* Wider for easier grabbing */
+            background: transparent;
+            cursor: ew-resize;
+            z-index: 1000;
+        }
+
+        #sidebarResizer:hover {
+            background: rgba(74, 158, 255, 0.3);
+        }
+
+        #sidebarResizer.dragging {
+            background: rgba(74, 158, 255, 0.5);
+        }
+
+
+    </style>
 </head>
 <body>
-<div class="app">
-  <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar">
-    <div class="row" style="align-items:center">
-      <strong>Project</strong>
-      <span class="spacer"></span>
-      <span id="version" class="badge">v1.3.0</span>
-    </div>
-    <div class="row">
-      <button id="saveProjectBtn" class="btn small">Save</button>
-      <label class="btn small secondary" title="Load from .json">
-        Load
-        <input id="loadProjectInput" type="file" accept="application/json" />
-      </label>
-      <span id="projHint" class="muted" style="font-size:12px"></span>
-    </div>
+    <div id="app">
+        <div id="sidebar">
+          <div id="sidebarResizer"></div>
 
-    <h3>Media Library</h3>
-    <div class="upload row">
-      <label class="btn icon">
-        📥 Upload
-        <input id="fileInput" type="file" accept="image/*,video/*,.gif" multiple />
-      </label>
-      <span class="muted">Images, GIFs, Videos</span>
-    </div>
-    <div id="library" class="library"></div>
+          <div class="sidebar-section">
+                <h3>Project</h3>
+                <div class="button-group">
+                    <button id="saveBtn">💾 Save</button>
+                    <button id="loadBtn">📂 Load</button>
+                </div>
+                <input type="file" id="projectInput" accept=".json" style="display: none;">
+            </div>
+            <div class="sidebar-section">
+                <h3>Media Library</h3>
+                <div id="dropZone">
+                    <p>📁 Drop files here or click to browse</p>
+                    <p style="font-size: 11px; margin-top: 5px; opacity: 0.7;">Images, Videos, GIFs</p>
+                </div>
+                <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
+                <div id="mediaList"></div>
+            </div>
 
-    <div class="row" style="height:1px;background:#0f172a;margin:6px 0;flex:1 0 1px"></div>
+            <div class="sidebar-section" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                <h3>Layer Type</h3>
+                <div class="layer-type-selector">
+                    <button id="projectionTypeBtn" class="small">Projection</button>
+                    <button id="maskTypeBtn" class="small orange">Mask</button>
+                </div>
+                <button id="addLayerBtn">+ Add Layer</button>
+                <button id="completeMaskBtn" class="small orange" style="margin-top: 5px;">Complete Mask</button>
+                <div class="notice">
+                    <strong>Projection:</strong> Click 4 points clockwise<br>
+                    <strong>Mask:</strong> Click 3+ points, then Complete Mask<br>
+                    <strong>H key:</strong> Toggle handles visibility
+                </div>
+                <h3 style="margin-top: 15px;">Layers</h3>
+                <div id="layerList"></div>
+            </div>
+        </div>
 
-    <h3>Layer Type</h3>
-    <div class="row">
-      <button id="selectProjection" class="btn small">Projection</button>
-      <button id="selectMask" class="btn small orange">Mask</button>
-      <button id="selectMarker" class="btn small secondary">Marker</button>
-      <label class="muted">Marker Color</label>
-      <input id="markerColor" type="color" value="#ffeb3b" style="width:42px;height:28px;border:0;background:transparent; padding:0" />
-      <span class="muted" style="font-size:12px">applies to active Marker layer</span>
-      <span class="spacer"></span>
-      <button id="newLayerBtn" class="btn">+ New Layer</button>
-    </div>
-    <div class="notice">
-      Click canvas to add points.
-      <div class="muted" style="margin-top:4px">
-        Projection: 4 points (clockwise). Mask: 3+ points, then press “Complete Mask”.
-        Marker: press and drag to scribble; color per layer.
-      </div>
-    </div>
-
-    <h3>Layers</h3>
-    <div id="layers" class="layers"></div>
-    <div class="row">
-      <button id="completeMaskBtn" class="btn small orange" title="Complete current mask">Complete Mask</button>
-      <button id="clearAllBtn" class="btn small red">Clear All Layers</button>
+        <div id="canvasContainer">
+            <button id="toggleHandlesBtn" class="small">👁 Handles</button>
+            <button id="fullscreenBtn" class="small">⛶ Fullscreen</button>
+            <canvas id="projectionCanvas"></canvas>
+            <svg id="svgOverlay"></svg>
+            <div id="hud"></div>
+        </div>
     </div>
 
-    <div class="row" style="height:1px;background:#0f172a;margin:6px 0;flex:1 0 1px"></div>
-
-    <h3>View & Playback</h3>
-    <div class="row">
-      <button id="toggleHandlesBtn" class="btn small secondary" title="H">Toggle Handles</button>
-      <button id="playPauseAllBtn" class="btn small secondary" title="SPACE">Play/Pause All</button>
-      <button id="fullscreenBtn" class="btn small secondary" title="F">Fullscreen</button>
-    </div>
-    <div class="row">
-      
-    </div>
-  </aside>
-
-  <!-- Main -->
-  <main class="main">
-    <div class="topbar">
-      <strong>Canvas:</strong> <span id="canvasSize" class="muted">—</span>
-      <span class="spacer"></span>
-      <span id="activeInfo" class="muted">None</span>
-      <span class="spacer"></span>
-      <span id="statusText" class="muted">Idle — ready</span>
+    <!-- Modal for loading projects -->
+    <div id="loadProjectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <strong>Load Project Media Files</strong>
+            </div>
+            <div id="mediaUploadList"></div>
+            <div class="button-group" style="margin-top: 15px;">
+                <button id="confirmLoadBtn">Continue</button>
+                <button id="cancelLoadBtn" class="small danger">Cancel</button>
+            </div>
+        </div>
     </div>
 
-    <div id="stage" class="stage">
-      <canvas id="canvas"></canvas>
-      <svg id="overlay" class="overlay" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
-      <div id="hud" class="hud">
-        <div><b>Status:</b> <span id="hudStatus">Ready</span></div>
-        <div><b>Active:</b> <span id="hudActive">None</span></div>
-        <div><a href="https://github.com/ShyftXero/GUERILLA_MASK">https://github.com/ShyftXero/GUERILLA_MASK</a></div>
-      </div>
-    </div>
-  </main>
-</div>
-
-<script>
-/* ==============================
-   Global State
-================================*/
-const APP_VERSION = '1.3.0';
-let uploadedFiles = []; // {id,name,type,kind:'image'|'video'|'gif', data?, url?, img?, video?, gifCanvas?, needsReupload?, playing?}
-let layers = [];        // {id,type:'projection'|'mask'|'marker', name, points:[{x,y}], strokes?, color?, mediaId?, mediaName?, playing?}
-let activeLayerId = null;
-let isDrawing = false;
-let layerType = 'projection';
-let handlesVisible = true;
-let controlsVisible = true;
-let videosPlaying = true;
-let mouseDrag = null; // {layerId, idx}
-let selectedMediaId = null;
-let drawingStroke = null; // active freehand stroke (for Marker)
-
-const SUBDIV = 10; // 10x10 subdivision
-const SHOW_MESH = false; // debug grid
-const TRI_EPS = 0.85;   // Triangle overlap to hide seams
-
-/* ==============================
-   Elements
-================================*/
-const els = {
-  sidebar: document.getElementById('sidebar'),
-  fileInput: document.getElementById('fileInput'),
-  library: document.getElementById('library'),
-  layers: document.getElementById('layers'),
-  canvas: document.getElementById('canvas'),
-  overlay: document.getElementById('overlay'),
-  stage: document.getElementById('stage'),
-  canvasSize: document.getElementById('canvasSize'),
-  statusText: document.getElementById('statusText'),
-  activeInfo: document.getElementById('activeInfo'),
-  hud: document.getElementById('hud'),
-  hudStatus: document.getElementById('hudStatus'),
-  hudActive: document.getElementById('hudActive'),
-  toggleHandlesBtn: document.getElementById('toggleHandlesBtn'),
-  playPauseAllBtn: document.getElementById('playPauseAllBtn'),
-  newLayerBtn: document.getElementById('newLayerBtn'),
-  selectProjection: document.getElementById('selectProjection'),
-  selectMask: document.getElementById('selectMask'),
-  selectMarker: document.getElementById('selectMarker'),
-  markerColor: document.getElementById('markerColor'),
-  completeMaskBtn: document.getElementById('completeMaskBtn'),
-  clearAllBtn: document.getElementById('clearAllBtn'),
-  fullscreenBtn: document.getElementById('fullscreenBtn'),
-  topbar: document.querySelector('.topbar'),
-  saveProjectBtn: document.getElementById('saveProjectBtn'),
-  loadProjectInput: document.getElementById('loadProjectInput'),
-  version: document.getElementById('version'),
-  projHint: document.getElementById('projHint'),
-};
-
-/* ==============================
-   Canvas setup
-================================*/
-const ctx = els.canvas.getContext('2d', { alpha:false, desynchronized:true });
-ctx.imageSmoothingEnabled = true;
-ctx.imageSmoothingQuality = 'high';
-
-function resizeCanvas(){
-  const r = els.stage.getBoundingClientRect();
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  els.canvas.width = Math.max(1, Math.floor(r.width * dpr));
-  els.canvas.height = Math.max(1, Math.floor(r.height * dpr));
-  els.canvas.style.width = r.width + 'px';
-  els.canvas.style.height = r.height + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  els.canvasSize.textContent = `${Math.round(r.width)}×${Math.round(r.height)} @${dpr}x`;
-}
-
-/* ==============================
-   Helpers
-================================*/
-const uid = () => Math.random().toString(36).slice(2,10);
-const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
-const pctToPx = (p, size) => p/100*size;
-const pxToPct = (px, size) => clamp((px/size)*100, 0, 100);
-
-function status(s){ els.statusText.textContent = s; els.hudStatus.textContent = s; }
-function activeLayer(){ return layers.find(x=>x.id===activeLayerId) || null; }
-function activeInfo(){
-  const l = activeLayer();
-  let txt = 'None';
-  if (l){
-    if (l.type==='projection') txt = `${l.name} PROJECTION ${l.points.length}pt`;
-    else if (l.type==='mask') txt = `${l.name} MASK ${l.points.length}pt`;
-    else if (l.type==='marker') txt = `${l.name} MARKER`;
-  }
-  els.activeInfo.textContent = txt;
-  els.hudActive.textContent = txt;
-}
-
-function expandTri(tri, eps = TRI_EPS){
-  const cx = (tri[0].x + tri[1].x + tri[2].x) / 3;
-  const cy = (tri[0].y + tri[1].y + tri[2].y) / 3;
-  return tri.map(p => {
-    const vx = p.x - cx, vy = p.y - cy;
-    const len = Math.hypot(vx, vy) || 1;
-    return { x: p.x + (vx/len) * eps, y: p.y + (vy/len) * eps };
-  });
-}
-
-function blobToDataURL(blob){
-  return new Promise((resolve,reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-/* ==============================
-   Media Loading
-================================*/
-function renderLibrary(){
-  els.library.innerHTML = '';
-  for (const m of uploadedFiles){
-    const row = document.createElement('div');
-    row.className = 'media-item';
-
-    const pill = document.createElement('span');
-    pill.className = 'badge';
-    pill.textContent = m.kind.toUpperCase();
-    if (m.kind==='gif') pill.style.background = '#7c2d12';
-    if (m.needsReupload) pill.style.background = '#5b2334';
-
-    const name = document.createElement('span');
-    name.textContent = m.name + (m.needsReupload?' (relink needed)':'');
-    name.style.flex='1';
-
-    const useBtn = document.createElement('button');
-    useBtn.className = 'btn small secondary';
-    useBtn.textContent = 'Use';
-    useBtn.onclick = ()=>{ selectedMediaId = m.id; status(`Selected media: ${m.name}`); };
-
-    row.append(pill, name, useBtn);
-    els.library.appendChild(row);
-  }
-}
-
-// Try relink by filename for GIF/Video stubs
-function relinkStubIfAny(file, rec){
-  const stub = uploadedFiles.find(m => m.needsReupload && m.name === file.name && m.kind === rec.kind);
-  if (!stub) return null;
-  return stub;
-}
-
-els.fileInput.addEventListener('change', async (e)=>{
-  const files = Array.from(e.target.files||[]);
-  for (const file of files){
-    const ext = (file.name.split('.').pop()||'').toLowerCase();
-    const isGif = file.type==='image/gif' || ext==='gif';
-    const isImage = file.type.startsWith('image/') && !isGif;
-    const isVideo = file.type.startsWith('video/');
-
-    try{
-      if (isImage){
-        const id = uid();
-        const dataURL = await blobToDataURL(file);
-        const img = new Image();
-        await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; img.src=dataURL; });
-        uploadedFiles.push({ id, name:file.name, kind:'image', type:file.type||'', data:dataURL, img, playing:true });
-      } else if (isGif){
-        const existing = relinkStubIfAny(file, {kind:'gif'});
-        const id = existing ? existing.id : uid();
-        const url = URL.createObjectURL(file);
-        const gifCanvas = document.createElement('canvas');
-        gifCanvas.width = 2; gifCanvas.height = 2;
-        await new Promise((res)=>{
-          gifler(url).get(a=>{
-            a.animateInCanvas(gifCanvas);
-            res();
-          });
-        });
-        const rec = { id, name:file.name, kind:'gif', type:file.type||'image/gif', url, gifCanvas, playing:true };
-        if (existing){
-          Object.assign(existing, rec);
-          existing.needsReupload = false;
-        } else {
-          uploadedFiles.push(rec);
-        }
-      } else if (isVideo){
-        const existing = relinkStubIfAny(file, {kind:'video'});
-        const id = existing ? existing.id : uid();
-        const url = URL.createObjectURL(file);
-        const video = document.createElement('video');
-        video.src = url; video.loop = true; video.muted = true; // default muted
-        await video.play().catch(()=>{ /* will start on user action */ });
-        const rec = { id, name:file.name, kind:'video', type:file.type||'video/*', url, video, playing:true };
-        if (existing){
-          Object.assign(existing, rec);
-          existing.needsReupload = false;
-        } else {
-          uploadedFiles.push(rec);
-        }
-      }
-    }catch(err){
-      console.error('Upload error', err);
-      status('Upload failed for ' + file.name);
-    }
-  }
-  renderLibrary();
-});
-
-/* ==============================
-   Layers UI helpers
-================================*/
-function layerDisplayName(l){
-  if (l.type==='mask') return 'Mask';
-  if (l.type==='marker') return 'Marker';
-  const media = uploadedFiles.find(m=>m.id===l.mediaId);
-  const name = media?.name || l.mediaName || '(none)';
-  return `Projection — ${name}`;
-}
-
-function moveLayer(id, dir){
-  const i = layers.findIndex(x=>x.id===id);
-  if (i<0) return;
-  const j = i + dir;
-  if (j<0 || j>=layers.length) return;
-  const [item] = layers.splice(i,1);
-  layers.splice(j,0,item);
-  renderLayersList();
-}
-
-function selectLayer(id){
-  activeLayerId = id;
-  const l = activeLayer();
-  if (l?.type==='marker' && els.markerColor){
-    els.markerColor.value = l.color || '#ffeb3b';
-  }
-  renderLayersList();
-  drawHandles();
-}
-
-function renderLayersList(){
-  els.layers.innerHTML = '';
-  layers.forEach((l, idx)=>{
-    const row = document.createElement('div');
-    row.className = 'layer-item' + (l.id===activeLayerId ? ' active' : '');
-
-    const order = document.createElement('span');
-    order.className = 'badge';
-    order.textContent = idx.toString();
-
-    const lbl = document.createElement('span');
-    lbl.textContent = layerDisplayName(l);
-    lbl.style.flex = '1';
-
-    const controls = document.createElement('div');
-    controls.className = 'layer-controls';
-
-    const up = document.createElement('button');
-    up.className = 'btn small secondary';
-    up.title = 'Move up (render later) ▼';
-    up.textContent = '▼';
-    up.disabled = (idx === layers.length-1);
-    up.onclick = (e)=>{ e.stopPropagation(); moveLayer(l.id, +1); };
-    
-    const down = document.createElement('button');
-    down.className = 'btn small secondary';
-    down.title = 'Move down (render earlier) ▲';
-    down.textContent = '▲';
-    down.disabled = (idx === 0);
-    down.onclick = (e)=>{ e.stopPropagation(); moveLayer(l.id, -1); };
-
-    const del = document.createElement('button');
-    del.className = 'btn small red';
-    del.title = 'Delete layer';
-    del.textContent = '✖';
-    del.onclick = (e)=>{ e.stopPropagation(); deleteLayer(l.id); };
-
-    controls.append(up, down, del);
-
-    if (l.type==='marker'){
-      const color = document.createElement('input');
-      color.type = 'color';
-      color.value = l.color || '#ffeb3b';
-      color.title = 'Marker color';
-      color.style.width='32px'; color.style.height='22px'; color.style.border='0'; color.style.background='transparent';
-      color.oninput = (e)=>{ l.color = e.target.value; if (activeLayerId===l.id && els.markerColor) els.markerColor.value = l.color; };
-      controls.prepend(color);
-    }
-
-    row.append(order, lbl, controls);
-    row.onclick = ()=> selectLayer(l.id);
-
-    els.layers.appendChild(row);
-  });
-}
-
-function deleteLayer(id){
-  layers = layers.filter(l=>l.id!==id);
-  if (activeLayerId===id) activeLayerId = null;
-  renderLayersList(); drawHandles();
-}
-
-/* ==============================
-   Layer creation
-================================*/
-els.selectProjection.onclick = ()=>{ layerType='projection'; status('Layer type: Projection'); };
-els.selectMask.onclick = ()=>{ layerType='mask'; status('Layer type: Mask'); };
-els.selectMarker.onclick = ()=>{ layerType='marker'; status('Layer type: Marker (freehand)'); };
-
-els.newLayerBtn.onclick = ()=>{
-  const l = {
-    id: uid(),
-    type: layerType,
-    name: layerType==='mask' ? 'Mask' : (layerType==='marker' ? 'Marker' : 'Projection'),
-    points: [],
-    strokes: layerType==='marker' ? [] : undefined,
-    color: layerType==='marker' ? (els.markerColor?.value || '#ffeb3b') : undefined,
-    mediaId: layerType==='projection' ? (selectedMediaId||null) : null,
-    mediaName: layerType==='projection' ? ((uploadedFiles.find(m=>m.id===selectedMediaId)?.name) || null) : null,
-    playing: true
-  };
-  layers.push(l);
-  activeLayerId = l.id;
-  isDrawing = (layerType!=='marker');
-  renderLayersList(); drawHandles();
-  status(`New ${l.type}${l.type==='marker' ? ' — press & drag to scribble' : ' — click to add points'}`);
-};
-
-els.completeMaskBtn.onclick = ()=>{ isDrawing=false; status('Mask completed'); };
-els.clearAllBtn.onclick = ()=>{ layers=[]; activeLayerId=null; renderLayersList(); drawHandles(); };
-
-/* ==============================
-   Handles (SVG)
-================================*/
-function svgClear(){ els.overlay.innerHTML = ''; }
-
-function drawHandles(){
-  svgClear();
-  if (!handlesVisible) return;
-  const svg = els.overlay;
-
-  layers.forEach(layer=>{
-    if (layer.type==='marker') return; // no handles for marker
-
-    const group = document.createElementNS('http://www.w3.org/2000/svg','g');
-    group.setAttribute('data-layer', layer.id);
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('class','edge');
-    path.setAttribute('data-layer', layer.id);
-    svg.appendChild(group);
-    group.appendChild(path);
-
-    function makeD(){
-      const pts = layer.points;
-      if (!pts || pts.length===0) return '';
-      let d = `M ${pts[0].x} ${pts[0].y}`;
-      for (let i=1;i<pts.length;i++) d += ` L ${pts[i].x} ${pts[i].y}`;
-      if (layer.type==='mask' && pts.length>=3) d += ' Z';
-      return d;
-    }
-    path.setAttribute('d', makeD());
-
-    // Handles
-    layer.points.forEach((p,idx)=>{
-      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      c.setAttribute('cx', p.x);
-      c.setAttribute('cy', p.y);
-      c.setAttribute('r', 1.2);
-      c.setAttribute('class', 'handle' + (idx===0?' first':''));
-      c.dataset.layer = layer.id;
-      c.dataset.idx = idx;
-      c.style.cursor = 'grab';
-
-      c.addEventListener('pointerdown', (e)=>{
-        e.preventDefault();
-        mouseDrag = { layerId: layer.id, idx };
-        c.setPointerCapture?.(e.pointerId);
-      });
-
-      c.addEventListener('pointermove', (e)=>{
-        if (!mouseDrag || mouseDrag.layerId!==layer.id || mouseDrag.idx!==idx) return;
-        const r = els.canvas.getBoundingClientRect();
-        const x = pxToPct(e.clientX - r.left, r.width);
-        const y = pxToPct(e.clientY - r.top, r.height);
-        layer.points[idx] = {x,y};
-        c.setAttribute('cx', x);
-        c.setAttribute('cy', y);
-        path.setAttribute('d', makeD());
-        
-        // Update center handle if this is a projection layer
-        if (layer.type === 'projection' && layer.points.length === 4) {
-          updateCenterHandle(layer.id);
-        }
-      });
-
-      c.addEventListener('pointerup', ()=>{
-        mouseDrag = null;
-      });
-
-      group.appendChild(c);
-    });
-
-    // Add center-of-mass handle for projection layers with 4 points
-    if (layer.type === 'projection' && layer.points.length === 4) {
-      const cx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
-      const cy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
-
-      const centerHandle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-      centerHandle.setAttribute('cx', cx);
-      centerHandle.setAttribute('cy', cy);
-      centerHandle.setAttribute('r', 0.5); // slightly smaller
-      centerHandle.setAttribute('class', 'handle center');
-      centerHandle.setAttribute('fill', '#3b82f6'); // blue color
-      centerHandle.setAttribute('stroke', '#111');
-      centerHandle.setAttribute('stroke-width', '0.5');
-      centerHandle.style.vectorEffect = 'non-scaling-stroke';
-      centerHandle.dataset.layer = layer.id;
-      centerHandle.dataset.isCenter = 'true';
-      centerHandle.style.cursor = 'move';
-
-      let dragStart = null;
-
-      centerHandle.addEventListener('pointerdown', (e)=>{
-        e.preventDefault();
-        const r = els.canvas.getBoundingClientRect();
-        dragStart = {
-          x: pxToPct(e.clientX - r.left, r.width),
-          y: pxToPct(e.clientY - r.top, r.height),
-          points: layer.points.map(p => ({x: p.x, y: p.y})) // copy initial positions
+    <script>
+        // ===== Global App State =====
+        const app = {
+            mediaLibrary: [],
+            layers: [],
+            selectedLayerId: null,
+            layerType: 'projection',
+            canvas: { ctx: null, element: null, logicalWidth: 0, logicalHeight: 0 },
+            dragging: { active: false, pointIndex: -1, layerId: null, type: null, offset: { x: 0, y: 0 } },
+            mode: "idle",
+            addingPoints: false,
+            pendingProjectData: null,
+            handlesVisible: true
         };
-        mouseDrag = { layerId: layer.id, isCenter: true };
-        centerHandle.setPointerCapture?.(e.pointerId);
-      });
 
-      centerHandle.addEventListener('pointermove', (e)=>{
-        if (!mouseDrag || mouseDrag.layerId!==layer.id || !mouseDrag.isCenter || !dragStart) return;
-        
-        const r = els.canvas.getBoundingClientRect();
-        const currentX = pxToPct(e.clientX - r.left, r.width);
-        const currentY = pxToPct(e.clientY - r.top, r.height);
-        
-        const deltaX = currentX - dragStart.x;
-        const deltaY = currentY - dragStart.y;
-        
-        // Move all points by the same delta
-        layer.points.forEach((p, i) => {
-          p.x = clamp(dragStart.points[i].x + deltaX, 0, 100);
-          p.y = clamp(dragStart.points[i].y + deltaY, 0, 100);
-        });
-        
-        // Update center handle position
-        const newCx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
-        const newCy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
-        centerHandle.setAttribute('cx', newCx);
-        centerHandle.setAttribute('cy', newCy);
-        
-        // Update path and corner handles
-        path.setAttribute('d', makeD());
-        const handles = group.querySelectorAll('.handle:not(.center)');
-        handles.forEach((h, i) => {
-          h.setAttribute('cx', layer.points[i].x);
-          h.setAttribute('cy', layer.points[i].y);
-        });
-      });
+        // ===== Sidebar Resize =====
+        const sidebarResize = {
+            active: false,
+            startX: 0,
+            startWidth: 0
+        };
 
-      centerHandle.addEventListener('pointerup', ()=>{
-        mouseDrag = null;
-        dragStart = null;
-      });
+        // ===== Sidebar Resize =====
+        function initSidebarResize() {
+            const sidebar = document.getElementById('sidebar');
+            const resizer = document.getElementById('sidebarResizer');
+            const minWidth = 250;
+            const maxWidth = 800;
+            
+            let isResizing = false;
+            
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                resizer.classList.add('dragging');
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const newWidth = Math.max(minWidth, Math.min(maxWidth, e.clientX));
+                sidebar.style.width = newWidth + 'px';
+                resize(); // Trigger canvas resize
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizer.classList.remove('dragging');
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
 
-      centerHandle.addEventListener('pointercancel', ()=>{
-        mouseDrag = null;
-        dragStart = null;
-      });
 
-      group.appendChild(centerHandle);
-    }
-  });
-  
-  // Helper function to update center handle position
-  function updateCenterHandle(layerId) {
-    const centerHandle = svg.querySelector(`circle[data-layer="${layerId}"][data-is-center="true"]`);
-    if (!centerHandle) return;
-    
-    const layer = layers.find(l => l.id === layerId);
-    if (!layer || layer.points.length !== 4) return;
-    
-    const cx = (layer.points[0].x + layer.points[1].x + layer.points[2].x + layer.points[3].x) / 4;
-    const cy = (layer.points[0].y + layer.points[1].y + layer.points[2].y + layer.points[3].y) / 4;
-    centerHandle.setAttribute('cx', cx);
-    centerHandle.setAttribute('cy', cy);
-  }
-}
+        const SUBDIV = 10;
 
-/* ==============================
-   Project Save/Load
-================================*/
-function buildProjectJSON(){
-  const media = uploadedFiles.map(m=>{
-    const base = {id:m.id, name:m.name, kind:m.kind, type:m.type||''};
-    if (m.kind==='image'){
-      return {...base, data: m.data||null};
-    } else {
-      return {...base, filename: m.name}; // gifs/videos re-upload to relink
-    }
-  });
-  const savedLayers = layers.map(l=>({
-    id: l.id,
-    type: l.type,
-    name: l.name,
-    points: Array.isArray(l.points) ? l.points.map(p=>({x:p.x, y:p.y})) : [],
-    strokes: l.type==='marker' && Array.isArray(l.strokes)
-             ? l.strokes.map(st => st.map(p=>({x:p.x, y:p.y})))
-             : undefined,
-    color: l.type==='marker' ? (l.color || '#ffeb3b') : undefined,
-    mediaId: l.mediaId || null,
-    mediaName: l.mediaName || null,
-    playing: l.playing!==false
-  }));
-  return {
-    version: APP_VERSION,
-    savedAt: new Date().toISOString(),
-    media,
-    layers: savedLayers
-  };
-}
+        // ===== Utility Functions =====
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
 
-function download(filename, text){
-  const blob = new Blob([text], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(a.href);
-}
+        function showHUD(message) {
+            const hud = document.getElementById('hud');
+            hud.textContent = message;
+            hud.classList.add('visible');
+            setTimeout(() => hud.classList.remove('visible'), 2000);
+        }
 
-function saveProject(){
-  const project = buildProjectJSON();
-  const fname = `projection-project-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;
-  download(fname, JSON.stringify(project, null, 2));
-  status('Project saved');
-}
+        function pctToPx(p, size) {
+            return (p / 100) * size;
+        }
 
-async function loadProjectFromObject(obj){
-  uploadedFiles = [];
-  layers = [];
-  activeLayerId = null;
+        function pxToPct(px, size) {
+            return Math.max(0, Math.min(100, (px / size) * 100));
+        }
 
-  // Restore media
-  for (const m of (obj.media||[])){
-    if (m.kind==='image' && m.data){
-      const rec = {id:m.id, name:m.name, kind:'image', type:m.type||'', playing:true, data:m.data};
-      rec.img = new Image();
-      await new Promise((res,rej)=>{ rec.img.onload=res; rec.img.onerror=rej; rec.img.src=m.data; });
-      uploadedFiles.push(rec);
-    } else if (m.kind==='gif'){
-      uploadedFiles.push({
-        id:m.id, name:m.filename||m.name, kind:'gif', type:m.type||'image/gif',
-        playing:true, needsReupload:true
-      });
-    } else if (m.kind==='video'){
-      uploadedFiles.push({
-        id:m.id, name:m.filename||m.name, kind:'video', type:m.type||'video/*',
-        playing:true, needsReupload:true
-      });
-    }
-  }
+        function toggleHandles() {
+            app.handlesVisible = !app.handlesVisible;
+            const svg = document.getElementById('svgOverlay');
+            if (app.handlesVisible) {
+                svg.classList.remove('hidden');
+            } else {
+                svg.classList.add('hidden');
+            }
+            showHUD(app.handlesVisible ? 'Handles visible' : 'Handles hidden');
+        }
 
-  // Restore layers
-  layers = (obj.layers||[]).map(l=>{
-    if (l.type==='marker'){
-      return {
-        id: l.id || uid(),
-        type: 'marker',
-        name: 'Marker',
-        points: [],
-        strokes: Array.isArray(l.strokes) ? l.strokes.map(st => Array.isArray(st) ? st.map(p=>({x:+p.x, y:+p.y})) : []) : [],
-        color: l.color || '#ffeb3b',
-        mediaId: null, mediaName: null,
-        playing: true
-      };
-    }
-    return {
-      id: l.id || uid(),
-      type: l.type==='mask' ? 'mask' : 'projection',
-      name: (l.type==='mask' ? 'Mask' : 'Projection'),
-      points: Array.isArray(l.points) ? l.points.map(p=>({x:+p.x, y:+p.y})) : [],
-      mediaId: l.mediaId || null,
-      mediaName: l.mediaName || null,
-      playing: l.playing!==false
-    };
-  });
+        // ===== Auto-assign media based on filename matching =====
+        function autoAssignMedia() {
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && !layer.mediaId) {
+                  // Extract number from layer name
+                  const layerMatch = layer.name.match(/\d+/);
+                  const layerNum = layerMatch ? layerMatch[0] : null;
+                  
+                  // Find media with matching number
+                  const media = app.mediaLibrary.find(m => {
+                      if (!layerNum) return false;
+                      
+                      // Extract number from media filename
+                      const mediaMatch = m.name.match(/\d+/);
+                      if (!mediaMatch) return false;
+                      
+                      return mediaMatch[0] === layerNum;
+                  });
+                  
+                  if (media) {
+                      layer.mediaId = media.id;
+                      layer.mediaName = media.name;
+                      console.log(`✓ Auto-assigned "${media.name}" to "${layer.name}"`);
+                  } else {
+                      console.log(`✗ No media found for "${layer.name}"`);
+                  }
+              }
+          });
+          updateLayerList();
+      }
 
-  renderLibrary();
-  renderLayersList();
-  drawHandles();
+      // ===== Link media to layers that are waiting for it =====
+      function linkMediaToLayers() {
+          let linkedCount = 0;
+          
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && !layer.mediaId && layer.mediaName) {
+                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  if (media) {
+                      layer.mediaId = media.id;
+                      linkedCount++;
+                      console.log(`✓ Linked "${media.name}" to "${layer.name}"`);
+                  }
+              }
+          });
+          
+          if (linkedCount > 0) {
+              updateLayerList();
+              updateOverlay();
+              showHUD(`${linkedCount} layer${linkedCount > 1 ? 's' : ''} linked to media`);
+          }
+      }
 
-  if (els.projHint) {
-    els.projHint.textContent = obj.savedAt ? `Loaded: ${new Date(obj.savedAt).toLocaleString()}` : '';
-  }
-  status('Project loaded');
-}
 
-els.saveProjectBtn.onclick = saveProject;
+        // ===== Canvas Setup =====
+        function setupCanvas() {
+            const container = document.getElementById('canvasContainer');
+            const canvas = document.getElementById('projectionCanvas');
+            app.canvas.element = canvas;
+            app.canvas.ctx = canvas.getContext('2d', { alpha: false });
 
-els.loadProjectInput.addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0];
-  if (!f) return;
-  try{
-    const txt = await f.text();
-    const obj = JSON.parse(txt);
-    await loadProjectFromObject(obj);
-  }catch(err){
-    console.error('Load project error', err);
-    status('Load failed: ' + err.message);
-  } finally {
-    e.target.value = '';
-  }
-});
+            function resize() {
+                const rect = container.getBoundingClientRect();
+                
+                // Store logical dimensions
+                app.canvas.logicalWidth = rect.width;
+                app.canvas.logicalHeight = rect.height;
+                
+                // Set canvas resolution to match display size
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                
+                // CSS size matches container
+                canvas.style.width = rect.width + 'px';
+                canvas.style.height = rect.height + 'px';
+                
+                // Update SVG viewBox to match logical size
+                const svg = document.getElementById('svgOverlay');
+                svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+                
+                // Update overlay handles after resize
+                updateOverlay();
+            }
 
-/* ==============================
-   Input: add points / marker strokes
-================================*/
-els.stage.addEventListener('pointerdown', (e)=>{
-  const l = activeLayer();
-  if (!l) return;
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // Handle fullscreen changes
+            document.addEventListener('fullscreenchange', resize);
+            document.addEventListener('webkitfullscreenchange', resize);
+            document.addEventListener('mozfullscreenchange', resize);
+            document.addEventListener('MSFullscreenChange', resize);
+        }
 
-  const r = els.canvas.getBoundingClientRect();
-  const x = pxToPct(e.clientX - r.left, r.width);
-  const y = pxToPct(e.clientY - r.top, r.height);
+        // ===== Media Loading =====
+        function loadMediaFile(file, expectedFilename = null) {
+            const isGif = file.type === 'image/gif';
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/') && !isGif;
 
-  if (l.type==='marker'){
-    const stroke = [{x, y}];
-    l.strokes.push(stroke);
-    drawingStroke = stroke;
-    els.stage.setPointerCapture?.(e.pointerId);
-    e.preventDefault();
-    return;
-  }
+            if (isGif) {
+                const id = uuid();
+                const url = URL.createObjectURL(file);
+                const gifCanvas = document.createElement('canvas');
+                gifCanvas.width = 2;
+                gifCanvas.height = 2;
 
-  if (!isDrawing) return;
-  if (l.type==='projection'){
-    if (l.points.length<4){
-      l.points.push({x,y});
-      if (l.points.length===4){ isDrawing=false; status('Projection quad set'); }
-    }
-  } else if (l.type==='mask'){
-    l.points.push({x,y}); // complete with button
-  }
-  drawHandles();
-});
+                gifler(url).get(animator => {
+                    animator.animateInCanvas(gifCanvas);
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'gif',
+                        kind: 'gif',
+                        element: gifCanvas,
+                        width: gifCanvas.width,
+                        height: gifCanvas.height,
+                        url: url,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                });
+            } else if (isVideo) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.autoplay = true;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'video',
+                        kind: 'video',
+                        element: video,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                });
+                
+                video.play().catch(e => console.warn('Video autoplay failed:', e));
+            } else if (isImage) {
+                const img = new Image();
+                img.onload = () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'image',
+                        kind: 'image',
+                        element: img,
+                        width: img.width,
+                        height: img.height,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        }
 
-els.stage.addEventListener('pointermove', (e)=>{
-  if (!drawingStroke) return;
-  const r = els.canvas.getBoundingClientRect();
-  const x = pxToPct(e.clientX - r.left, r.width);
-  const y = pxToPct(e.clientY - r.top, r.height);
-  drawingStroke.push({x, y});
-});
+        function updateMediaList() {
+            const list = document.getElementById('mediaList');
+            list.innerHTML = '';
+            app.mediaLibrary.forEach(media => {
+                const item = document.createElement('div');
+                item.className = 'media-item';
+                item.textContent = `${media.name} (${media.type})`;
+                list.appendChild(item);
+            });
+        }
 
-function endStroke(){
-  drawingStroke = null;
-}
-els.stage.addEventListener('pointerup', endStroke);
-els.stage.addEventListener('pointercancel', endStroke);
+        function assignMediaToLayer(layerId) {
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.type !== 'projection') return;
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,video/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    loadMediaFile(file);
+                    // Wait a moment for media to load, then assign
+                    setTimeout(() => {
+                        const media = app.mediaLibrary[app.mediaLibrary.length - 1];
+                        if (media) {
+                            layer.mediaId = media.id;
+                            layer.mediaName = media.name;
+                            updateLayerList();
+                            showHUD('Media assigned to layer');
+                        }
+                    }, 100);
+                }
+            };
+            input.click();
+        }
 
-/* ==============================
-   Keyboard shortcuts
-================================*/
-window.addEventListener('keydown', (e)=>{
-  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveProject(); }
-  else if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='o'){ e.preventDefault(); els.loadProjectInput.click(); }
-  else if (e.code==='KeyH'){ handlesVisible=!handlesVisible; drawHandles(); }
-  else if (e.code==='KeyC'){ controlsVisible=!controlsVisible; els.sidebar.classList.toggle('hidden', !controlsVisible); resizeCanvas(); }
-  else if (e.code==='KeyF'){ toggleFullscreen(); }
-  else if (e.code==='Space'){ e.preventDefault(); togglePlayAll(); }
-  else if (e.code==='Escape'){ isDrawing=false; }
-  else if (e.code==='Delete'){ if (activeLayerId){ deleteLayer(activeLayerId); } }
-  else if (e.altKey && e.code==='ArrowUp' && activeLayerId){ moveLayer(activeLayerId, +1); }
-  else if (e.altKey && e.code==='ArrowDown' && activeLayerId){ moveLayer(activeLayerId, -1); }
-});
+        // ===== Layer Management =====
+        function createLayer() {
+            const layer = {
+                id: uuid(),
+                type: app.layerType,
+                name: `${app.layerType === 'projection' ? 'Projection' : 'Mask'} ${app.layers.length + 1}`,
+                mediaId: null,
+                mediaName: null,
+                enabled: true,
+                points: []
+            };
+            
+            app.layers.push(layer);
+            app.selectedLayerId = layer.id;
+            app.addingPoints = true;
+            updateLayerList();
+            updateOverlay();
+            showHUD(`Adding points to ${layer.name}. Click to place.`);
+        }
 
-/* ==============================
-   Rendering
-================================*/
-function isMediaReady(m){
-  if (m.kind==='image') return m.img && m.img.naturalWidth>0;
-  if (m.kind==='gif') return m.gifCanvas && m.gifCanvas.width>0;
-  if (m.kind==='video') return m.video && m.video.videoWidth>0;
-  return false;
-}
+        function completeMask() {
+            const layer = app.layers.find(l => l.id === app.selectedLayerId);
+            if (layer && layer.type === 'mask' && layer.points.length >= 3) {
+                app.addingPoints = false;
+                showHUD('Mask completed');
+            }
+        }
 
-function drawMask(pointsPct, rect){
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.beginPath();
-  pointsPct.forEach((p,idx)=>{
-    const x = pctToPx(p.x, rect.width);
-    const y = pctToPx(p.y, rect.height);
-    if (idx===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  });
-  ctx.closePath();
-  ctx.fillStyle = 'black';
-  ctx.fill();
-  ctx.restore();
-}
+        function duplicateLayer(layerId) {
+            const original = app.layers.find(l => l.id === layerId);
+            if (!original) return;
+            
+            const duplicate = {
+                ...original,
+                id: uuid(),
+                name: original.name + ' Copy',
+                points: original.points.map(p => ({ ...p }))
+            };
+            
+            app.layers.push(duplicate);
+            app.selectedLayerId = duplicate.id;
+            updateLayerList();
+            updateOverlay();
+            showHUD(`Duplicated layer`);
+        }
 
-function bilerp(quad, u, v){
-  // quad points: [p0, p1, p2, p3] clockwise
-  const p0 = quad[0], p1 = quad[1], p2 = quad[2], p3 = quad[3];
-  const x = (1-u)*(1-v)*p0.x + u*(1-v)*p1.x + u*v*p2.x + (1-u)*v*p3.x;
-  const y = (1-u)*(1-v)*p0.y + u*(1-v)*p1.y + u*v*p2.y + (1-u)*v*p3.y;
-  return {x,y};
-}
+        function deleteLayer(layerId) {
+            app.layers = app.layers.filter(l => l.id !== layerId);
+            if (app.selectedLayerId === layerId) {
+                app.selectedLayerId = app.layers.length > 0 ? app.layers[0].id : null;
+            }
+            app.addingPoints = false;
+            updateLayerList();
+            updateOverlay();
+        }
 
-function affineFromTriangles(src, dst){
-  // src, dst: [{x,y},{x,y},{x,y}]
-  const x0=src[0].x, y0=src[0].y, x1=src[1].x, y1=src[1].y, x2=src[2].x, y2=src[2].y;
-  const u0=dst[0].x, v0=dst[0].y, u1=dst[1].x, v1=dst[1].y, u2=dst[2].x, v2=dst[2].y;
+        function toggleLayerEnabled(layerId) {
+            const layer = app.layers.find(l => l.id === layerId);
+            if (layer) {
+                layer.enabled = !layer.enabled;
+                updateLayerList();
+            }
+        }
 
-  const denom = (x0*(y1 - y2) + x1*(y2 - y0) + x2*(y0 - y1));
-  if (Math.abs(denom) < 1e-6) return null;
+        function selectLayer(layerId) {
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+            updateOverlay();
+        }
 
-  const a = (u0*(y1 - y2) + u1*(y2 - y0) + u2*(y0 - y1)) / denom;
-  const b = (u0*(x2 - x1) + u1*(x0 - x2) + u2*(x1 - x0)) / denom;
-  const c = (u0*(x1*y2 - x2*y1) + u1*(x2*y0 - x0*y2) + u2*(x0*y1 - x1*y0)) / denom;
+        function moveLayerUp(layerId) {
+            const index = app.layers.findIndex(l => l.id === layerId);
+            if (index > 0) {
+                [app.layers[index], app.layers[index - 1]] = [app.layers[index - 1], app.layers[index]];
+                updateLayerList();
+                updateOverlay();
+                showHUD('Layer moved up');
+            }
+        }
 
-  const d = (v0*(y1 - y2) + v1*(y2 - y0) + v2*(y0 - y1)) / denom;
-  const e = (v0*(x2 - x1) + v1*(x0 - x2) + v2*(x1 - x0)) / denom;
-  const f = (v0*(x1*y2 - x2*y1) + v1*(x2*y0 - x0*y2) + v2*(x0*y1 - x1*y0)) / denom;
+        function moveLayerDown(layerId) {
+            const index = app.layers.findIndex(l => l.id === layerId);
+            if (index < app.layers.length - 1) {
+                [app.layers[index], app.layers[index + 1]] = [app.layers[index + 1], app.layers[index]];
+                updateLayerList();
+                updateOverlay();
+                showHUD('Layer moved down');
+            }
+        }
 
-  // Canvas setTransform uses [a, d, b, e, c, f] mapped to matrix:
-  // [ a  b  c ]
-  // [ d  e  f ]
-  // [ 0  0  1 ]
-  return [a, d, b, e, c, f];
-}
+        function updateLayerList() {
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
+            
+            // Render layers in reverse order (top to bottom = high to low z-index)
+            [...app.layers].reverse().forEach(layer => {
+                const item = document.createElement('div');
+                item.className = 'layer-item' + 
+                    (layer.id === app.selectedLayerId ? ' selected' : '') +
+                    (!layer.enabled ? ' disabled' : '');
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'layer-name';
+                nameDiv.innerHTML = `
+                    <div>${layer.name}</div>
+                    ${layer.mediaName ? `<div class="layer-info">📎 ${layer.mediaName}</div>` : ''}
+                `;
+                nameDiv.onclick = () => selectLayer(layer.id);
+                
+                const controls = document.createElement('div');
+                controls.className = 'layer-controls';
+                
+                // Z-index controls
+                const zControls = document.createElement('div');
+                zControls.className = 'z-index-controls';
+                
+                const upBtn = document.createElement('button');
+                upBtn.className = 'small';
+                upBtn.textContent = '↓';
+                upBtn.title = 'Move down';
+                upBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    moveLayerUp(layer.id);
+                };
+                
+                const downBtn = document.createElement('button');
+                downBtn.className = 'small';
+                downBtn.textContent = '↑';
+                downBtn.title = 'Move up';
+                downBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    moveLayerDown(layer.id);
+                };
+                
+                zControls.appendChild(upBtn);
+                zControls.appendChild(downBtn);
+                
+                // Assign media button (only for projection layers)
+                if (layer.type === 'projection') {
+                    const assignBtn = document.createElement('button');
+                    assignBtn.className = 'small';
+                    assignBtn.textContent = '📎';
+                    assignBtn.title = 'Assign media';
+                    assignBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        assignMediaToLayer(layer.id);
+                    };
+                    controls.appendChild(assignBtn);
+                }
+                
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'small';
+                toggleBtn.textContent = layer.enabled ? '👁' : '🚫';
+                toggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleLayerEnabled(layer.id);
+                };
+                
+                const dupBtn = document.createElement('button');
+                dupBtn.className = 'small';
+                dupBtn.textContent = '📋';
+                dupBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    duplicateLayer(layer.id);
+                };
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = 'small danger';
+                delBtn.textContent = '🗑';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteLayer(layer.id);
+                };
+                
+                controls.appendChild(zControls);
+                controls.appendChild(toggleBtn);
+                controls.appendChild(dupBtn);
+                controls.appendChild(delBtn);
+                
+                item.appendChild(nameDiv);
+                item.appendChild(controls);
+                list.appendChild(item);
+            });
+        }
 
-function drawTriangle(source, srcTri, dstTri){
-  const m = affineFromTriangles(srcTri, dstTri);
-  if(!m) return;
+        // ===== Projection Rendering =====
+        function renderProjection() {
+            const ctx = app.canvas.ctx;
+            const w = app.canvas.logicalWidth;
+            const h = app.canvas.logicalHeight;
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Render in order (first = bottom, last = top)
+            app.layers.forEach(layer => {
+                if (!layer.enabled) return;
+                
+                if (layer.type === 'projection' && layer.points.length === 4) {
+                    const media = app.mediaLibrary.find(m => m.id === layer.mediaId);
+                    if (!media || !media.element) return;
+                    
+                    const pts = layer.points.map(p => ({
+                        x: pctToPx(p.x, w),
+                        y: pctToPx(p.y, h)
+                    }));
+                    
+                    renderQuad(ctx, media.element, pts);
+                } else if (layer.type === 'mask' && layer.points.length >= 3) {
+                    const pts = layer.points.map(p => ({
+                        x: pctToPx(p.x, w),
+                        y: pctToPx(p.y, h)
+                    }));
+                    
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+        }
 
-  const dst = expandTri(dstTri);
+        function renderQuad(ctx, source, dstPoints) {
+          if (!source) return;
+          
+          const [p0, p1, p2, p3] = dstPoints; // topLeft, topRight, botRight, botLeft
+          const subdivisions = 8; // Grid subdivisions
+          
+          const sw = source.videoWidth || source.width;
+          const sh = source.videoHeight || source.height;
+          
+          // Draw as a grid of quads (each split into 2 triangles)
+          for (let row = 0; row < subdivisions; row++) {
+              for (let col = 0; col < subdivisions; col++) {
+                  const u0 = col / subdivisions;
+                  const u1 = (col + 1) / subdivisions;
+                  const v0 = row / subdivisions;
+                  const v1 = (row + 1) / subdivisions;
+                  
+                  // Interpolate corners of this grid cell
+                  const tl = bilinearInterp(p0, p1, p2, p3, u0, v0);
+                  const tr = bilinearInterp(p0, p1, p2, p3, u1, v0);
+                  const br = bilinearInterp(p0, p1, p2, p3, u1, v1);
+                  const bl = bilinearInterp(p0, p1, p2, p3, u0, v1);
+                  
+                  // Source coordinates for this grid cell
+                  const sx0 = u0 * sw;
+                  const sx1 = u1 * sw;
+                  const sy0 = v0 * sh;
+                  const sy1 = v1 * sh;
+                  
+                  // Draw cell as two triangles
+                  drawTriangle(ctx, source,
+                      sx0, sy0, sx1, sy0, sx0, sy1,
+                      tl.x, tl.y, tr.x, tr.y, bl.x, bl.y
+                  );
+                  
+                  drawTriangle(ctx, source,
+                      sx1, sy0, sx1, sy1, sx0, sy1,
+                      tr.x, tr.y, br.x, br.y, bl.x, bl.y
+                  );
+              }
+          }
+      }
 
-  ctx.save();
-  ctx.globalCompositeOperation = 'source-over';
+      function bilinearInterp(p0, p1, p2, p3, u, v) {
+          const top = { x: p0.x + (p1.x - p0.x) * u, y: p0.y + (p1.y - p0.y) * u };
+          const bot = { x: p3.x + (p2.x - p3.x) * u, y: p3.y + (p2.y - p3.y) * u };
+          return { x: top.x + (bot.x - top.x) * v, y: top.y + (bot.y - top.y) * v };
+      }
 
-  ctx.beginPath();
-  ctx.moveTo(dst[0].x, dst[0].y);
-  ctx.lineTo(dst[1].x, dst[1].y);
-  ctx.lineTo(dst[2].x, dst[2].y);
-  ctx.closePath();
-  ctx.clip();
 
-  ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
-  ctx.drawImage(source, 0, 0);
-  ctx.restore();
-}
 
-function drawProjection(layer, media, rect){
-  const quad = layer.points.map(p=>({
-    x: pctToPx(p.x, rect.width),
-    y: pctToPx(p.y, rect.height)
-  }));
-
-  // Source grid (normalized 0..1)
-  const p00 = quad[0], p10 = quad[1], p11 = quad[2], p01 = quad[3];
-
-  const source = media.kind==='gif' ? media.gifCanvas
-                : media.kind==='video' ? media.video
-                : media.img;
-
-  // Split into SUBDIV tiles, each into 2 triangles, approximate bilinear warp
-  for (let i=0; i<SUBDIV; i++){
-    const u0 = i/SUBDIV, u1 = (i+1)/SUBDIV;
-    for (let j=0; j<SUBDIV; j++){
-      const v0 = j/SUBDIV, v1 = (j+1)/SUBDIV;
-
-      const q00 = bilerp([p00,p10,p11,p01], u0, v0);
-      const q10 = bilerp([p00,p10,p11,p01], u1, v0);
-      const q11 = bilerp([p00,p10,p11,p01], u1, v1);
-      const q01 = bilerp([p00,p10,p11,p01], u0, v1);
-
-      const sx = source.videoWidth || source.width;
-      const sy = source.videoHeight || source.height;
-
-      const s00 = {x: u0*sx, y: v0*sy};
-      const s10 = {x: u1*sx, y: v0*sy};
-      const s11 = {x: u1*sx, y: v1*sy};
-      const s01 = {x: u0*sx, y: v1*sy};
-
-      // triangles
-      drawTriangle(source, [s00,s10,s11], [q00,q10,q11]);
-      drawTriangle(source, [s00,s11,s01], [q00,q11,q01]);
-
-      if (SHOW_MESH){
+      function drawTriangle(ctx, img, sx0, sy0, sx1, sy1, sx2, sy2, dx0, dy0, dx1, dy1, dx2, dy2) {
         ctx.save();
-        ctx.strokeStyle = 'rgba(147,197,253,.35)';
-        ctx.lineWidth = .5;
+
+        // Expand destination clipping region by 1px
+        const cx = (dx0 + dx1 + dx2) / 3;
+        const cy = (dy0 + dy1 + dy2) / 3;
+        const expandAmount = 1.02; // 1% expansion to help mitigate lines from drawing triangles. 
+        
+        const edx0 = cx + (dx0 - cx) * expandAmount;
+        const edy0 = cy + (dy0 - cy) * expandAmount;
+        const edx1 = cx + (dx1 - cx) * expandAmount;
+        const edy1 = cy + (dy1 - cy) * expandAmount;
+        const edx2 = cx + (dx2 - cx) * expandAmount;
+        const edy2 = cy + (dy2 - cy) * expandAmount;
+
+        // Set clipping region to expanded destination triangle
         ctx.beginPath();
-        ctx.moveTo(q00.x,q00.y); ctx.lineTo(q10.x,q10.y); ctx.lineTo(q11.x,q11.y); ctx.lineTo(q01.x,q01.y); ctx.closePath();
-        ctx.stroke(); ctx.restore();
+        ctx.moveTo(edx0, edy0);
+        ctx.lineTo(edx1, edy1);
+        ctx.lineTo(edx2, edy2);
+        ctx.closePath();
+        ctx.clip();
+
+        // Calculate transformation matrix from source to EXPANDED destination triangle
+        const x1 = sx0, y1 = sy0;
+        const x2 = sx1, y2 = sy1;
+        const x3 = sx2, y3 = sy2;
+
+        const u1 = edx0, v1 = edy0;
+        const u2 = edx1, v2 = edy1;
+        const u3 = edx2, v3 = edy2;
+
+        // Solve for affine transform coefficients
+        const delta = (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+
+        if (Math.abs(delta) < 0.0001) {
+            ctx.restore();
+            return; // Degenerate triangle
+        }
+
+        const deltaA = (u1 - u3) * (y2 - y3) - (u2 - u3) * (y1 - y3);
+        const deltaB = (x1 - x3) * (u2 - u3) - (x2 - x3) * (u1 - u3);
+        const deltaC = (v1 - v3) * (y2 - y3) - (v2 - v3) * (y1 - y3);
+        const deltaD = (x1 - x3) * (v2 - v3) - (x2 - x3) * (v1 - v3);
+
+        const a = deltaA / delta;
+        const b = deltaB / delta;
+        const c = deltaC / delta;
+        const d = deltaD / delta;
+        const e = u3 - a * x3 - b * y3;
+        const f = v3 - c * x3 - d * y3;
+
+        // Apply the transform and draw
+        ctx.transform(a, c, b, d, e, f);
+        ctx.drawImage(img, 0, 0);
+
+        ctx.restore();
+    }
+
+
+
+
+
+
+        function lerpQuad(tl, tr, br, bl, u, v) {
+            const top = lerp2D(tl, tr, u);
+            const bot = lerp2D(bl, br, u);
+            return lerp2D(top, bot, v);
+        }
+
+        function lerp2D(a, b, t) {
+            return {
+                x: a.x + (b.x - a.x) * t,
+                y: a.y + (b.y - a.y) * t
+            };
+        }
+
+        function computeTriangleTransform(src, dst) {
+            const [s0, s1, s2] = src;
+            const [d0, d1, d2] = dst;
+            
+            const srcMat = [
+                s0.x, s1.x, s2.x,
+                s0.y, s1.y, s2.y,
+                1, 1, 1
+            ];
+            
+            const det = srcMat[0] * (srcMat[4] * srcMat[8] - srcMat[5] * srcMat[7]) -
+                        srcMat[1] * (srcMat[3] * srcMat[8] - srcMat[5] * srcMat[6]) +
+                        srcMat[2] * (srcMat[3] * srcMat[7] - srcMat[4] * srcMat[6]);
+            
+            if (Math.abs(det) < 1e-10) {
+                return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            }
+            
+            const inv = [
+                (srcMat[4] * srcMat[8] - srcMat[5] * srcMat[7]) / det,
+                (srcMat[2] * srcMat[7] - srcMat[1] * srcMat[8]) / det,
+                (srcMat[1] * srcMat[5] - srcMat[2] * srcMat[4]) / det,
+                (srcMat[5] * srcMat[6] - srcMat[3] * srcMat[8]) / det,
+                (srcMat[0] * srcMat[8] - srcMat[2] * srcMat[6]) / det,
+                (srcMat[2] * srcMat[3] - srcMat[0] * srcMat[5]) / det,
+                (srcMat[3] * srcMat[7] - srcMat[4] * srcMat[6]) / det,
+                (srcMat[1] * srcMat[6] - srcMat[0] * srcMat[7]) / det,
+                (srcMat[0] * srcMat[4] - srcMat[1] * srcMat[3]) / det
+            ];
+            
+            const a = inv[0] * d0.x + inv[1] * d1.x + inv[2] * d2.x;
+            const b = inv[3] * d0.x + inv[4] * d1.x + inv[5] * d2.x;
+            const c = inv[6] * d0.x + inv[7] * d1.x + inv[8] * d2.x;
+            
+            const d = inv[0] * d0.y + inv[1] * d1.y + inv[2] * d2.y;
+            const e = inv[3] * d0.y + inv[4] * d1.y + inv[5] * d2.y;
+            const f = inv[6] * d0.y + inv[7] * d1.y + inv[8] * d2.y;
+            
+            return { a, b: d, c: b, d: e, e: c, f };
+        }
+
+        // ===== SVG Overlay (Handles) =====
+        function updateOverlay() {
+            const svg = document.getElementById('svgOverlay');
+            svg.innerHTML = '';
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            
+            app.layers.forEach(layer => {
+                if (!layer.enabled || layer.points.length === 0) return;
+                
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                // Draw outline
+                const outline = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const pointsStr = layer.points.map(p => 
+                    `${pctToPx(p.x, rect.width)},${pctToPx(p.y, rect.height)}`
+                ).join(' ');
+                outline.setAttribute('points', pointsStr);
+                outline.setAttribute('class', layer.type === 'mask' ? 'mask-outline' : 'quad-outline');
+                
+                // Highlight selected layer
+                if (layer.id === app.selectedLayerId) {
+                    outline.classList.add('selected');
+                }
+                
+                outline.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectLayer(layer.id);
+                    startDragLayer(e, layer.id);
+                });
+                g.appendChild(outline);
+                
+                // Draw handles for each point
+                layer.points.forEach((point, idx) => {
+                    const handle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    handle.setAttribute('class', 'handle' + (idx === 0 ? ' first' : ''));
+                    
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', pctToPx(point.x, rect.width));
+                    circle.setAttribute('cy', pctToPx(point.y, rect.height));
+                    circle.setAttribute('r', 8);
+                    
+                    handle.appendChild(circle);
+                    handle.addEventListener('mousedown', (e) => startDragPoint(e, layer.id, idx));
+                    g.appendChild(handle);
+                });
+                
+                // Center of mass handle for both projection and mask layers (when they have 3+ points)
+                if ((layer.type === 'projection' && layer.points.length === 4) || 
+                    (layer.type === 'mask' && layer.points.length >= 3)) {
+                    const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+                    const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+                    
+                    const centerHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    centerHandle.setAttribute('class', 'handle center-of-mass');
+                    
+                    const centerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    centerCircle.setAttribute('cx', pctToPx(centerX, rect.width));
+                    centerCircle.setAttribute('cy', pctToPx(centerY, rect.height));
+                    centerCircle.setAttribute('r', 10);
+                    
+                    centerHandle.appendChild(centerCircle);
+                    centerHandle.addEventListener('mousedown', (e) => startDragCenter(e, layer.id));
+                    g.appendChild(centerHandle);
+                }
+                
+                svg.appendChild(g);
+            });
+        }
+
+        // ===== Canvas Click Handler =====
+        function onCanvasClick(e) {
+            if (app.dragging.active) return;
+            if (!app.addingPoints) return;
+
+            const layer = app.layers.find(l => l.id === app.selectedLayerId);
+            if (!layer) return;
+
+            const rect = app.canvas.element.getBoundingClientRect();
+            const x = pxToPct(e.clientX - rect.left, rect.width);
+            const y = pxToPct(e.clientY - rect.top, rect.height);
+
+            if (layer.type === 'projection' && layer.points.length < 4) {
+                layer.points.push({ x, y });
+                if (layer.points.length === 4) {
+                    app.addingPoints = false;
+                    autoAssignMedia(); // Try to auto-assign media when quad is complete
+                    showHUD('Projection quad complete');
+                }
+                updateOverlay();
+                updateLayerList();
+            } else if (layer.type === 'mask') {
+                layer.points.push({ x, y });
+                updateOverlay();
+                updateLayerList();
+                showHUD(`Mask point ${layer.points.length} added`);
+            }
+        }
+
+        // ===== Dragging Logic =====
+        function startDragPoint(e, layerId, pointIndex) {
+            e.stopPropagation();
+            e.preventDefault();
+            app.dragging = {
+                active: true,
+                type: 'point',
+                layerId: layerId,
+                pointIndex: pointIndex
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function startDragCenter(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer) return;
+            
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            app.dragging = {
+                active: true,
+                type: 'center',
+                layerId: layerId,
+                offset: { x: mouseX - centerX, y: mouseY - centerY }
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function startDragLayer(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.points.length === 0) return;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            
+            app.dragging = {
+                active: true,
+                type: 'layer',
+                layerId: layerId,
+                offset: { x: mouseX - centerX, y: mouseY - centerY }
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function onMouseMove(e) {
+            if (!app.dragging.active) return;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            const layer = app.layers.find(l => l.id === app.dragging.layerId);
+            if (!layer) return;
+            
+            if (app.dragging.type === 'point') {
+                layer.points[app.dragging.pointIndex] = { x: mouseX, y: mouseY };
+            } else if (app.dragging.type === 'center' || app.dragging.type === 'layer') {
+                const oldCenterX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+                const oldCenterY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+                
+                const newCenterX = mouseX - app.dragging.offset.x;
+                const newCenterY = mouseY - app.dragging.offset.y;
+                
+                const dx = newCenterX - oldCenterX;
+                const dy = newCenterY - oldCenterY;
+                
+                layer.points.forEach(p => {
+                    p.x += dx;
+                    p.y += dy;
+                });
+            }
+            
+            updateOverlay();
+        }
+
+        function onMouseUp() {
+            app.dragging.active = false;
+        }
+
+        // ===== Save/Load System =====
+        function saveProject() {
+            const project = {
+                version: "1.4.0",
+                savedAt: new Date().toISOString(),
+                media: app.mediaLibrary.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    filename: m.filename || m.name,
+                    type: m.type,
+                    kind: m.kind
+                })),
+                layers: app.layers.map(l => ({
+                    id: l.id,
+                    type: l.type,
+                    name: l.name,
+                    mediaId: l.mediaId,
+                    mediaName: l.mediaName,
+                    enabled: l.enabled,
+                    points: l.points,
+                    playing: true
+                }))
+            };
+            
+            const json = JSON.stringify(project, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `projection-map-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showHUD('Project saved');
+        }
+
+        async function loadProject(file) {
+            try {
+                const text = await file.text();
+                const project = JSON.parse(text);
+                
+                app.pendingProjectData = project;
+                
+                // Show modal for media file upload
+                const modal = document.getElementById('loadProjectModal');
+                const mediaList = document.getElementById('mediaUploadList');
+                mediaList.innerHTML = '';
+                
+                (project.media || []).forEach(mediaInfo => {
+                    const item = document.createElement('div');
+                    item.className = 'media-upload-item';
+                    item.innerHTML = `
+                        <span>${mediaInfo.filename || mediaInfo.name}</span>
+                        <button class="small" onclick="selectMediaForLoad('${mediaInfo.id}', '${mediaInfo.kind}', '${mediaInfo.filename || mediaInfo.name}')">Select File</button>
+                    `;
+                    item.dataset.mediaId = mediaInfo.id;
+                    item.dataset.filename = mediaInfo.filename || mediaInfo.name;
+                    mediaList.appendChild(item);
+                });
+                
+                modal.classList.add('visible');
+            } catch (err) {
+                console.error('Error loading project:', err);
+                showHUD('Error loading project');
+            }
+        }
+
+        window.selectMediaForLoad = function(mediaId, kind, expectedFilename) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = kind === 'video' ? 'video/*' : 'image/*';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    loadMediaFileWithId(file, mediaId, expectedFilename);
+                    
+                    // Mark as complete
+                    const item = document.querySelector(`[data-media-id="${mediaId}"]`);
+                    if (item) {
+                        item.classList.add('complete');
+                        item.querySelector('button').textContent = '✓';
+                    }
+                }
+            };
+            
+            input.click();
+        };
+
+        function loadMediaFileWithId(file, id, expectedFilename) {
+            const isGif = file.type === 'image/gif';
+            const isVideo = file.type.startsWith('video/');
+
+            if (isGif) {
+                const url = URL.createObjectURL(file);
+                const gifCanvas = document.createElement('canvas');
+                gifCanvas.width = 2;
+                gifCanvas.height = 2;
+
+                gifler(url).get(animator => {
+                    animator.animateInCanvas(gifCanvas);
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'gif',
+                        kind: 'gif',
+                        element: gifCanvas,
+                        width: gifCanvas.width,
+                        height: gifCanvas.height,
+                        url: url,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                });
+            } else if (isVideo) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.autoplay = true;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'video',
+                        kind: 'video',
+                        element: video,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    video.play().catch(e => {});
+                });
+            } else {
+                const img = new Image();
+                img.onload = () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'image',
+                        kind: 'image',
+                        element: img,
+                        width: img.width,
+                        height: img.height,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        }
+
+        function confirmLoadProject() {
+          if (!app.pendingProjectData) return;
+          
+          const project = app.pendingProjectData;
+          
+          // Restore layers
+          app.layers = (project.layers || []).map(l => ({
+              id: l.id,
+              type: l.type,
+              name: l.name,
+              mediaId: null, // Clear old media ID
+              mediaName: l.mediaName, // Keep the filename reference
+              enabled: l.enabled !== false,
+              points: l.points || []
+          }));
+          
+          // Re-link media by matching filenames
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && layer.mediaName) {
+                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  if (media) {
+                      layer.mediaId = media.id;
+                      console.log(`✓ Linked "${media.name}" to "${layer.name}"`);
+                  } else {
+                      console.log(`✗ Media not found: "${layer.mediaName}"`);
+                  }
+              }
+          });
+          
+          if (app.layers.length > 0) {
+              app.selectedLayerId = app.layers[0].id;
+          }
+          
+          updateLayerList();
+          updateOverlay();
+          
+          document.getElementById('loadProjectModal').classList.remove('visible');
+          app.pendingProjectData = null;
+          showHUD('Project loaded - media linked');
       }
-    }
-  }
-}
 
-function drawMarker(layer, rect){
-  if (!Array.isArray(layer.strokes) || layer.strokes.length===0) return;
-  ctx.save();
-  ctx.strokeStyle = layer.color || '#ffeb3b';
-  ctx.lineWidth = 3.5; // screen pixels
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
 
-  for (const s of layer.strokes){
-    if (!s || s.length<2) continue;
-    ctx.beginPath();
-    let p0 = s[0];
-    ctx.moveTo(pctToPx(p0.x, rect.width), pctToPx(p0.y, rect.height));
-    for (let i=1;i<s.length;i++){
-      const p = s[i];
-      ctx.lineTo(pctToPx(p.x, rect.width), pctToPx(p.y, rect.height));
-    }
-    ctx.stroke();
-  }
+        function cancelLoadProject() {
+            app.mediaLibrary = [];
+            app.pendingProjectData = null;
+            document.getElementById('loadProjectModal').classList.remove('visible');
+            updateMediaList();
+        }
 
-  ctx.restore();
-}
+        // ===== Fullscreen =====
+        function toggleFullscreen() {
+            const container = document.getElementById('canvasContainer');
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
 
-function render(){
-  requestAnimationFrame(render);
-  activeInfo();
+        // ===== Animation Loop =====
+        function animate() {
+            requestAnimationFrame(animate);
+            renderProjection();
+        }
 
-  ctx.save();
-  const r = els.canvas.getBoundingClientRect();
-  ctx.clearRect(0,0,r.width,r.height);
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0,0,r.width,r.height);
+        // ===== Event Listeners =====
+        function setupEventListeners() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const files = Array.from(e.dataTransfer.files);
+                files.forEach(loadMediaFile);
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                files.forEach(loadMediaFile);
+                fileInput.value = '';
+            });
+            
+            document.getElementById('addLayerBtn').addEventListener('click', createLayer);
+            document.getElementById('completeMaskBtn').addEventListener('click', completeMask);
+            
+            document.getElementById('projectionTypeBtn').addEventListener('click', () => {
+                app.layerType = 'projection';
+                showHUD('Layer type: Projection');
+            });
+            
+            document.getElementById('maskTypeBtn').addEventListener('click', () => {
+                app.layerType = 'mask';
+                showHUD('Layer type: Mask');
+            });
+            
+            document.getElementById('saveBtn').addEventListener('click', saveProject);
+            document.getElementById('loadBtn').addEventListener('click', () => {
+                document.getElementById('projectInput').click();
+            });
+            
+            document.getElementById('projectInput').addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    loadProject(e.target.files[0]);
+                    e.target.value = '';
+                }
+            });
+            
+            document.getElementById('confirmLoadBtn').addEventListener('click', confirmLoadProject);
+            document.getElementById('cancelLoadBtn').addEventListener('click', cancelLoadProject);
+            
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+            document.getElementById('toggleHandlesBtn').addEventListener('click', toggleHandles);
+            
+            app.canvas.element.addEventListener('click', onCanvasClick);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Delete' && app.selectedLayerId) {
+                    deleteLayer(app.selectedLayerId);
+                } else if (e.key === 'Escape') {
+                    app.addingPoints = false;
+                    showHUD('Cancelled point placement');
+                } else if (e.key === 'f' || e.key === 'F') {
+                    toggleFullscreen();
+                } else if (e.key === 'h' || e.key === 'H') {
+                    toggleHandles();
+                }
+            });
+        }
 
-  // Draw layers in array order (this is Z-order)
-  for (const layer of layers){
-    if (layer.type==='mask' && layer.points.length>=3){
-      drawMask(layer.points, r);
-    } else if (layer.type==='projection' && layer.points.length===4 && layer.mediaId){
-      const media = uploadedFiles.find(m=>m.id===layer.mediaId);
-      if (media && isMediaReady(media)) drawProjection(layer, media, r);
-    } else if (layer.type==='marker'){
-      drawMarker(layer, r);
-    }
-  }
+        // ===== Initialize =====
+        function init() {
+            setupCanvas();
+            setupEventListeners();
+            initSidebarResize(); // ADD THIS LINE
+            animate();
+            showHUD('Ready - Add a layer to start');
+        }
 
-  ctx.restore();
-}
-
-/* ==============================
-   Playback controls
-================================*/
-function togglePlayAll(){
-  videosPlaying = !videosPlaying;
-  uploadedFiles.forEach(m=>{
-    if (m.kind==='video' && m.video){
-      if (videosPlaying){
-        m.video.play().catch(()=>{});
-      } else {
-        m.video.pause();
-      }
-    }
-  });
-  status(videosPlaying ? 'Play all' : 'Pause all');
-}
-els.playPauseAllBtn.onclick = togglePlayAll;
-
-/* ==============================
-   Fullscreen UX with auto-hide HUD
-================================*/
-let inFullscreen = false;
-let hudHideTimer = null;
-const HUD_HIDE_DELAY = 2000; // ms
-
-function showHud(){
-  els.topbar.classList.remove('hidden');
-  els.hud.classList.remove('hidden');
-  els.stage.classList.remove('hide-cursor');
-}
-function hideHud(){
-  els.topbar.classList.add('hidden');
-  els.hud.classList.add('hidden');
-  els.stage.classList.add('hide-cursor');
-}
-function clearHudHideTimer(){
-  if (hudHideTimer){ clearTimeout(hudHideTimer); hudHideTimer = null; }
-}
-function startHudHideTimer(){
-  clearHudHideTimer();
-  hudHideTimer = setTimeout(()=>{
-    if (inFullscreen) hideHud();
-  }, HUD_HIDE_DELAY);
-}
-
-function updateFullscreenState(){
-  inFullscreen = !!document.fullscreenElement;
-  document.body.classList.toggle('fs', inFullscreen);
-  if (inFullscreen){
-    showHud();
-    startHudHideTimer();
-  } else {
-    clearHudHideTimer();
-    showHud(); // ensure visible when exiting
-  }
-}
-
-function handleUserActivity(){
-  if (!inFullscreen) return;
-  showHud();
-  startHudHideTimer();
-}
-
-function toggleFullscreen(){
-  if (!document.fullscreenElement){
-    els.stage.requestFullscreen?.();
-  } else {
-    document.exitFullscreen?.();
-  }
-}
-
-// Events
-document.addEventListener('fullscreenchange', updateFullscreenState);
-document.addEventListener('mousemove', handleUserActivity, {passive:true});
-document.addEventListener('touchstart', handleUserActivity, {passive:true});
-document.addEventListener('keydown', handleUserActivity);
-els.fullscreenBtn.onclick = ()=> toggleFullscreen();
-
-/* ==============================
-   Marker color picker wiring
-================================*/
-els.markerColor?.addEventListener('input', (e)=>{
-  const l = activeLayer();
-  if (l && l.type==='marker'){
-    l.color = e.target.value;
-  }
-});
-
-/* ==============================
-   Init
-================================*/
-function init(){
-  els.version.textContent = 'v' + APP_VERSION;
-  renderLibrary();
-  renderLayersList();
-  drawHandles();
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-  render();
-  status('Idle — ready');
-}
-init();
-</script>
+        window.addEventListener('load', init);
+    </script>
 </body>
 </html>
