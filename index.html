@@ -236,6 +236,16 @@
             opacity: 1;
         }
 
+        #fullscreenBtn, #toggleHandlesBtn {
+            transition: opacity 0.3s;
+        }
+
+        #fullscreenBtn.hidden, #toggleHandlesBtn.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+
         .button-group {
             display: flex;
             gap: 5px;
@@ -1566,11 +1576,54 @@
             }
         }
 
+
         // ===== Animation Loop =====
         function animate() {
             requestAnimationFrame(animate);
             renderProjection();
         }
+        // ===== Auto-hide buttons in fullscreen =====
+        let mouseIdleTimeout = null;
+        let lastMouseMove = Date.now();
+
+        function handleMouseActivity() {
+            lastMouseMove = Date.now();
+            
+            if (document.fullscreenElement) {
+                const fullscreenBtn = document.getElementById('fullscreenBtn');
+                const toggleHandlesBtn = document.getElementById('toggleHandlesBtn');
+                
+                fullscreenBtn.classList.remove('hidden');
+                toggleHandlesBtn.classList.remove('hidden');
+                
+                clearTimeout(mouseIdleTimeout);
+                mouseIdleTimeout = setTimeout(() => {
+                    if (document.fullscreenElement) {
+                        fullscreenBtn.classList.add('hidden');
+                        toggleHandlesBtn.classList.add('hidden');
+                    }
+                }, 3000); // Hide after 3 seconds of inactivity
+            }
+        }
+
+        function checkFullscreenState() {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const toggleHandlesBtn = document.getElementById('toggleHandlesBtn');
+            
+            if (!document.fullscreenElement) {
+                // Not in fullscreen - show buttons
+                fullscreenBtn.classList.remove('hidden');
+                toggleHandlesBtn.classList.remove('hidden');
+                clearTimeout(mouseIdleTimeout);
+            } else {
+                // Entered fullscreen - start the hide timer
+                handleMouseActivity();
+            }
+        }
+
+        document.addEventListener('mousemove', handleMouseActivity);
+        document.addEventListener('fullscreenchange', checkFullscreenState);
+
 
         // ===== Event Listeners =====
         function setupEventListeners() {
