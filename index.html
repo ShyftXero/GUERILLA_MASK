@@ -850,6 +850,28 @@
                 showHUD('Layer moved down');
             }
         }
+        function rotateLayer90(layerId) {
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.points.length === 0) return;
+            
+            // Calculate center point
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            
+            // Rotate each point 90 degrees clockwise around center
+            layer.points.forEach(point => {
+                const dx = point.x - centerX;
+                const dy = point.y - centerY;
+                
+                // 90° clockwise rotation: (x, y) -> (y, -x)
+                point.x = centerX + dy;
+                point.y = centerY - dx;
+            });
+            
+            updateLayerList();
+            updateOverlay();
+            showHUD('Layer rotated 90°');
+        }
 
         function updateLayerList() {
             const list = document.getElementById('layerList');
@@ -927,6 +949,15 @@
                     duplicateLayer(layer.id);
                 };
                 
+                const rotateBtn = document.createElement('button');
+                rotateBtn.className = 'small orange';
+                rotateBtn.textContent = '↻';
+                rotateBtn.title = 'Rotate 90° clockwise';
+                rotateBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    rotateLayer90(layer.id);
+                };
+                
                 const delBtn = document.createElement('button');
                 delBtn.className = 'small danger';
                 delBtn.textContent = '🗑';
@@ -935,9 +966,11 @@
                     deleteLayer(layer.id);
                 };
                 
+                
                 controls.appendChild(zControls);
                 controls.appendChild(toggleBtn);
                 controls.appendChild(dupBtn);
+                controls.appendChild(rotateBtn);
                 controls.appendChild(delBtn);
                 
                 item.appendChild(nameDiv);
