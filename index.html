@@ -426,10 +426,12 @@
                     <button id="maskTypeBtn" class="small orange">Mask</button>
                 </div>
                 <button id="addLayerBtn">+ Add Layer</button>
+                <button id="addCubeBtn" style="margin-top: 5px;">🎲 Add Cube</button>
                 <button id="completeMaskBtn" class="small orange" style="margin-top: 5px;">Complete Mask</button>
                 <div class="notice">
                     <strong>Projection:</strong> Click 4 points clockwise<br>
                     <strong>Mask:</strong> Click 3+ points, then Complete Mask<br>
+                    <strong>Cube:</strong> 3 projection layers (Top/Left/Right faces)<br>
                     <strong>H key:</strong> Toggle handles visibility
                 </div>
                 <h3 style="margin-top: 15px;">Layers</h3>
@@ -871,6 +873,95 @@
             updateLayerList();
             updateOverlay();
             showHUD('Layer rotated 90°');
+        }
+
+        // ===== Cube Shape Primitive =====
+        function addCubeShape() {
+            // 7 visible corners of an isometric cube centered at 50%, 50%
+            // Each coordinate is a percentage of canvas width/height
+            const cx = 50, cy = 50;
+            const w = 15; // horizontal half-width (%)
+            const h = 10; // vertical half-height per row (%)
+
+            // Key points:
+            //        A
+            //       / \
+            //      B   C
+            //       \ /
+            //        D   ← front corner (shared by all 3 faces)
+            //       / \
+            //      E   F
+            //       \ /
+            //        G
+            const A = { x: cx,     y: cy - h * 2 }; // top apex
+            const B = { x: cx - w, y: cy - h      }; // left of top face / top of left face
+            const C = { x: cx + w, y: cy - h      }; // right of top face / top of right face
+            const D = { x: cx,     y: cy           }; // front corner (shared junction)
+            const E = { x: cx - w, y: cy + h       }; // bottom of left face
+            const F = { x: cx + w, y: cy + h       }; // bottom of right face
+            const G = { x: cx,     y: cy + h * 2  }; // bottom apex
+
+            // Use the first media in the library as the shared starting media
+            const sharedMedia = app.mediaLibrary.length > 0 ? app.mediaLibrary[0] : null;
+
+            // Number based on existing cube count for clean sequential cube numbering
+            const cubeNum = app.layers.filter(l => /^Cube \d+ Top$/.test(l.name)).length + 1;
+
+            // Top face: A(top), C(right), D(front), B(left) → [TL, TR, BR, BL] in UV space
+            const topFace = {
+                id: uuid(),
+                type: 'projection',
+                name: `Cube ${cubeNum} Top`,
+                mediaId: sharedMedia ? sharedMedia.id : null,
+                mediaName: sharedMedia ? sharedMedia.name : null,
+                enabled: true,
+                points: [
+                    { x: A.x, y: A.y },
+                    { x: C.x, y: C.y },
+                    { x: D.x, y: D.y },
+                    { x: B.x, y: B.y }
+                ]
+            };
+
+            // Left face: B(top-left), D(front), G(bottom), E(bottom-left) → [TL, TR, BR, BL]
+            const leftFace = {
+                id: uuid(),
+                type: 'projection',
+                name: `Cube ${cubeNum} Left`,
+                mediaId: sharedMedia ? sharedMedia.id : null,
+                mediaName: sharedMedia ? sharedMedia.name : null,
+                enabled: true,
+                points: [
+                    { x: B.x, y: B.y },
+                    { x: D.x, y: D.y },
+                    { x: G.x, y: G.y },
+                    { x: E.x, y: E.y }
+                ]
+            };
+
+            // Right face: C(top-right), F(bottom-right), G(bottom), D(front) → [TL, TR, BR, BL]
+            const rightFace = {
+                id: uuid(),
+                type: 'projection',
+                name: `Cube ${cubeNum} Right`,
+                mediaId: sharedMedia ? sharedMedia.id : null,
+                mediaName: sharedMedia ? sharedMedia.name : null,
+                enabled: true,
+                points: [
+                    { x: C.x, y: C.y },
+                    { x: F.x, y: F.y },
+                    { x: G.x, y: G.y },
+                    { x: D.x, y: D.y }
+                ]
+            };
+
+            app.layers.push(topFace, leftFace, rightFace);
+            app.selectedLayerId = topFace.id;
+            app.addingPoints = false;
+
+            updateLayerList();
+            updateOverlay();
+            showHUD('Cube added — 3 projection layers created. Drag handles to adjust.');
         }
 
         function updateLayerList() {
@@ -1688,6 +1779,7 @@
             });
             
             document.getElementById('addLayerBtn').addEventListener('click', createLayer);
+            document.getElementById('addCubeBtn').addEventListener('click', addCubeShape);
             document.getElementById('completeMaskBtn').addEventListener('click', completeMask);
             
             document.getElementById('projectionTypeBtn').addEventListener('click', () => {
