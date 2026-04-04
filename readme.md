@@ -31,6 +31,7 @@ Try it -> https://shyftxero.github.io/GUERILLA_MASK/
 - Save/Load project as JSON
   - Images embed in JSON
   - GIF/Video saved as filename stubs; re‑link on load
+- Autosave recovery for crash protection (browser cache)
 - HUD that auto‑hides in fullscreen to keep output clean
 
 ---

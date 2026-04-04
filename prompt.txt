@@ -7,7 +7,7 @@ You are to recreate a lightweight projection‑mapping tool as a single self‑c
 - Let users map images/GIFs/videos onto arbitrary 4‑point quads on a canvas for projection.
 - Provide polygon masks that cut holes in the composited result.
 - Provide a simple freehand Marker layer for quick annotations (color per layer, no transforms).
-- Allow loading multiple media assets, layer reordering, play/pause, fullscreen, and JSON save/load of full project state. GIF/video media are referenced by filename and must be re‑linked on load; images are embedded.
+- Allow loading multiple media assets, layer reordering, play/pause, fullscreen, JSON save/load, and autosave recovery of the current session. GIF/video media are referenced by filename and must be re‑linked on load; images are embedded.
 
 ————————————
 ### Tech and packaging
@@ -115,6 +115,14 @@ Shared interactions:
 ————————————
 ### Fullscreen + HUD
 - Fullscreen targets the stage element. On entering, show HUD, then auto‑hide after inactivity (e.g., 2–3 seconds). Mousemove/touchstart/keydown in fullscreen shows HUD and restarts timer. Exiting fullscreen shows HUD again.
+
+————————————
+### Autosave recovery
+- Save a lightweight autosave snapshot to localStorage whenever layers/media change (debounced).
+- Autosave includes layers plus embedded image data; GIF/video are saved as stubs and will need re‑linking after recovery.
+- On load, if autosave exists, prompt to recover; allow user to discard it.
+- On load, show a non-blocking modal prompt to recover or discard the autosave (no blocking confirm dialogs).
+- Clear autosave after a manual Save.
 
 ————————————
 ### Persistence (Save/Load)

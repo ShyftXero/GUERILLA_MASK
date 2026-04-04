@@ -26,7 +26,7 @@
         }
 
         #sidebar {
-            width: 400px;
+            width: 380px;
             height: 100%;
             background: #2a2a2a;
             border-right: 1px solid #3a3a3a;
@@ -50,10 +50,10 @@
         }
 
         #layerList {
-                    flex: 1;
-                    min-height: 0;
-                    overflow-y: auto;
-                    margin-top: 10px;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            margin-top: 10px;
         }
 
         #dropZone {
@@ -345,6 +345,23 @@
             display: flex;
         }
 
+        #autosaveModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #autosaveModal.visible {
+            display: flex;
+        }
+
         .modal-content {
             background: #2a2a2a;
             padding: 20px;
@@ -399,8 +416,6 @@
             background: rgba(106, 183, 255, 0.9);
         }
 
-        
-
         #sidebarResizer {
             position: absolute;
             right: -2px; /* Changed from 0 */
@@ -419,10 +434,7 @@
         #sidebarResizer.dragging {
             background: rgba(74, 158, 255, 0.5);
         }
-
-
     </style>
-</head>
 <body>
     <div id="app">
         <div id="sidebar">
@@ -487,6 +499,19 @@
         </div>
     </div>
 
+    <div id="autosaveModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <strong>Recover Autosave?</strong>
+            </div>
+            <div id="autosaveMessage" style="margin-bottom: 10px; font-size: 13px; color: #e0e0e0;"></div>
+            <div class="button-group" style="margin-top: 15px;">
+                <button id="autosaveRecoverBtn">Recover</button>
+                <button id="autosaveDiscardBtn" class="small danger">Discard</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ===== Global App State =====
         const app = {
@@ -501,6 +526,11 @@
             pendingProjectData: null,
             handlesVisible: true
         };
+
+        const AUTOSAVE_KEY = 'guerilla_mask_autosave_v1';
+        const AUTOSAVE_DELAY = 600;
+        let autosaveTimer = null;
+    let pendingAutosaveSnapshot = null;
 
         // ===== Sidebar Resize =====
         const sidebarResize = {
@@ -590,6 +620,216 @@
             };
         }
 
+        function normalizeMediaName(name) {
+            return String(name || '')
+                .toLowerCase()
+                .replace(/\.[^/.]+$/, '')
+                .trim();
+        }
+
+        function findRelinkStub(kind, filename) {
+            const target = normalizeMediaName(filename);
+            return app.mediaLibrary.find(m => m.needsRelink && m.kind === kind &&
+                normalizeMediaName(m.filename || m.name) === target);
+        }
+
+        function upsertMedia(media) {
+            const target = normalizeMediaName(media.filename || media.name);
+            app.mediaLibrary = app.mediaLibrary.filter(m =>
+                m.id === media.id || !(m.kind === media.kind && normalizeMediaName(m.filename || m.name) === target)
+            );
+            const index = app.mediaLibrary.findIndex(m => m.id === media.id);
+            if (index >= 0) {
+                app.mediaLibrary[index] = media;
+            } else {
+                app.mediaLibrary.push(media);
+            }
+        }
+
+        function dedupeMediaLibrary() {
+            const map = new Map();
+            app.mediaLibrary.forEach(media => {
+                const key = `${media.kind}:${normalizeMediaName(media.filename || media.name)}`;
+                const existing = map.get(key);
+                if (!existing) {
+                    map.set(key, media);
+                    return;
+                }
+                const score = (m) => (m.element ? 3 : (m.needsRelink ? 0 : 1));
+                if (score(media) > score(existing)) {
+                    map.set(key, media);
+                }
+            });
+            app.mediaLibrary = Array.from(map.values());
+        }
+
+        function scheduleAutosave() {
+            if (autosaveTimer) clearTimeout(autosaveTimer);
+            autosaveTimer = setTimeout(() => {
+                saveAutosave().catch(err => console.warn('Autosave failed:', err));
+            }, AUTOSAVE_DELAY);
+        }
+
+        function getImageDataUrl(media) {
+            if (!media || !media.element || !media.element.naturalWidth) return null;
+            const canvas = document.createElement('canvas');
+            canvas.width = media.element.naturalWidth;
+            canvas.height = media.element.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(media.element, 0, 0);
+            return canvas.toDataURL('image/png');
+        }
+
+        async function buildProjectSnapshot(includeImageData = true) {
+            const media = app.mediaLibrary.map(m => {
+                const entry = {
+                    id: m.id,
+                    name: m.name,
+                    filename: m.filename || m.name,
+                    type: m.type,
+                    kind: m.kind,
+                    needsRelink: !!m.needsRelink
+                };
+                if (includeImageData && m.kind === 'image') {
+                    const data = getImageDataUrl(m);
+                    if (data) entry.data = data;
+                }
+                return entry;
+            });
+
+            return {
+                version: "1.5.0",
+                savedAt: new Date().toISOString(),
+                autosave: true,
+                media,
+                layers: app.layers.map(l => ({
+                    id: l.id,
+                    type: l.type,
+                    name: l.name,
+                    mediaId: l.mediaId,
+                    mediaName: l.mediaName,
+                    enabled: l.enabled,
+                    points: l.points,
+                    playing: true
+                })),
+                selectedLayerId: app.selectedLayerId,
+                layerType: app.layerType
+            };
+        }
+
+        async function saveAutosave() {
+            try {
+                const snapshot = await buildProjectSnapshot(true);
+                localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
+            } catch (err) {
+                console.warn('Autosave storage failed:', err);
+            }
+        }
+
+        function clearAutosave() {
+            localStorage.removeItem(AUTOSAVE_KEY);
+        }
+
+        function restoreMediaFromSnapshot(mediaList) {
+            app.mediaLibrary = [];
+            const pendingImages = [];
+
+            (mediaList || []).forEach(m => {
+                if (m.kind === 'image' && m.data) {
+                    const img = new Image();
+                    const media = {
+                        id: m.id,
+                        name: m.name,
+                        type: m.type || 'image',
+                        kind: 'image',
+                        element: img,
+                        width: 0,
+                        height: 0,
+                        filename: m.filename || m.name,
+                        needsRelink: false
+                    };
+
+                    const promise = new Promise(resolve => {
+                        img.onload = () => {
+                            media.width = img.naturalWidth;
+                            media.height = img.naturalHeight;
+                            resolve();
+                        };
+                    });
+                    img.src = m.data;
+                    app.mediaLibrary.push(media);
+                    pendingImages.push(promise);
+                } else {
+                    app.mediaLibrary.push({
+                        id: m.id,
+                        name: m.name,
+                        type: m.type || m.kind,
+                        kind: m.kind,
+                        element: null,
+                        width: 0,
+                        height: 0,
+                        filename: m.filename || m.name,
+                        needsRelink: true
+                    });
+                }
+            });
+
+            return Promise.all(pendingImages);
+        }
+
+        async function restoreFromSnapshot(snapshot) {
+            if (!snapshot) return;
+
+            await restoreMediaFromSnapshot(snapshot.media || []);
+
+            const mediaById = new Map(app.mediaLibrary.map(m => [m.id, m]));
+
+            app.layers = (snapshot.layers || []).map(l => ({
+                id: l.id,
+                type: l.type,
+                name: l.name,
+                mediaId: l.mediaId,
+                mediaName: l.mediaName,
+                enabled: l.enabled !== false,
+                points: l.points || []
+            }));
+
+            app.layers.forEach(layer => {
+                if (layer.type !== 'projection' || !layer.mediaId) return;
+                const media = mediaById.get(layer.mediaId);
+                if (!media || media.needsRelink) {
+                    layer.mediaId = null;
+                }
+            });
+
+            app.selectedLayerId = snapshot.selectedLayerId || (app.layers[0] ? app.layers[0].id : null);
+            app.layerType = snapshot.layerType || 'projection';
+
+            updateMediaList();
+            updateLayerList();
+            updateOverlay();
+            showHUD('Recovered autosave');
+        }
+
+        function checkForAutosave() {
+            const raw = localStorage.getItem(AUTOSAVE_KEY);
+            if (!raw) return;
+            let snapshot = null;
+            try {
+                snapshot = JSON.parse(raw);
+            } catch (err) {
+                console.warn('Autosave parse failed:', err);
+                clearAutosave();
+                return;
+            }
+            pendingAutosaveSnapshot = snapshot;
+            const savedAt = snapshot.savedAt ? new Date(snapshot.savedAt).toLocaleString() : 'recently';
+            const modal = document.getElementById('autosaveModal');
+            const message = document.getElementById('autosaveMessage');
+            message.textContent = `An autosave from ${savedAt} is available.`;
+            modal.classList.add('visible');
+        }
+
         function toggleHandles() {
             app.handlesVisible = !app.handlesVisible;
             const svg = document.getElementById('svgOverlay');
@@ -638,7 +878,8 @@
           
           app.layers.forEach(layer => {
               if (layer.type === 'projection' && !layer.mediaId && layer.mediaName) {
-                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  const target = normalizeMediaName(layer.mediaName);
+                  const media = app.mediaLibrary.find(m => !m.needsRelink && normalizeMediaName(m.filename || m.name) === target);
                   if (media) {
                       layer.mediaId = media.id;
                       linkedCount++;
@@ -700,9 +941,24 @@
             const isGif = file.type === 'image/gif';
             const isVideo = file.type.startsWith('video/');
             const isImage = file.type.startsWith('image/') && !isGif;
+            const filename = typeof expectedFilename === 'string' && expectedFilename.length > 0
+                ? expectedFilename
+                : file.name;
+            const kind = isGif ? 'gif' : (isVideo ? 'video' : 'image');
+            const existingStub = findRelinkStub(kind, filename);
+            const id = existingStub ? existingStub.id : uuid();
+
+            console.log('[media] load request', {
+                name: file.name,
+                filename,
+                kind,
+                type: file.type,
+                size: file.size,
+                relinkStub: !!existingStub,
+                id
+            });
 
             if (isGif) {
-                const id = uuid();
                 const url = URL.createObjectURL(file);
                 const gifCanvas = document.createElement('canvas');
                 gifCanvas.width = 2;
@@ -712,18 +968,20 @@
                     animator.animateInCanvas(gifCanvas);
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'gif',
                         kind: 'gif',
                         element: gifCanvas,
                         width: gifCanvas.width,
                         height: gifCanvas.height,
                         url: url,
-                        filename: expectedFilename || file.name
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
                     linkMediaToLayers(); // ADD THIS LINE
+                    console.log('[media] loaded gif', { name: media.name, id: media.id, width: media.width, height: media.height });
                 });
             } else if (isVideo) {
                 const video = document.createElement('video');
@@ -736,17 +994,19 @@
                 video.addEventListener('loadedmetadata', () => {
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'video',
                         kind: 'video',
                         element: video,
                         width: video.videoWidth,
                         height: video.videoHeight,
-                        filename: expectedFilename || file.name
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
                     linkMediaToLayers(); // ADD THIS LINE
+                    console.log('[media] loaded video', { name: media.name, id: media.id, width: media.width, height: media.height });
                 });
                 
                 video.play().catch(e => console.warn('Video autoplay failed:', e));
@@ -755,31 +1015,36 @@
                 img.onload = () => {
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'image',
                         kind: 'image',
                         element: img,
                         width: img.width,
                         height: img.height,
-                        filename: expectedFilename || file.name
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
                     linkMediaToLayers(); // ADD THIS LINE
+                    console.log('[media] loaded image', { name: media.name, id: media.id, width: media.width, height: media.height });
                 };
                 img.src = URL.createObjectURL(file);
             }
         }
 
         function updateMediaList() {
+            dedupeMediaLibrary();
             const list = document.getElementById('mediaList');
             list.innerHTML = '';
             app.mediaLibrary.forEach(media => {
                 const item = document.createElement('div');
                 item.className = 'media-item';
-                item.textContent = `${media.name} (${media.type})`;
+                const relink = media.needsRelink ? ' (relink needed)' : '';
+                item.textContent = `${media.name}${relink} (${media.type})`;
                 list.appendChild(item);
             });
+            scheduleAutosave();
         }
 
         function assignMediaToLayer(layerId) {
@@ -801,6 +1066,7 @@
                             layer.mediaName = media.name;
                             updateLayerList();
                             showHUD('Media assigned to layer');
+                            scheduleAutosave();
                         }
                     }, 100);
                 }
@@ -826,6 +1092,7 @@
             updateLayerList();
             updateOverlay();
             showHUD(`Adding points to ${layer.name}. Click to place.`);
+            scheduleAutosave();
         }
 
         function completeMask() {
@@ -833,6 +1100,7 @@
             if (layer && layer.type === 'mask' && layer.points.length >= 3) {
                 app.addingPoints = false;
                 showHUD('Mask completed');
+                scheduleAutosave();
             }
         }
 
@@ -852,6 +1120,7 @@
             updateLayerList();
             updateOverlay();
             showHUD(`Duplicated layer`);
+            scheduleAutosave();
         }
 
         function deleteLayer(layerId) {
@@ -862,6 +1131,7 @@
             app.addingPoints = false;
             updateLayerList();
             updateOverlay();
+            scheduleAutosave();
         }
 
         function toggleLayerEnabled(layerId) {
@@ -869,6 +1139,7 @@
             if (layer) {
                 layer.enabled = !layer.enabled;
                 updateLayerList();
+                scheduleAutosave();
             }
         }
 
@@ -877,6 +1148,7 @@
             app.addingPoints = false;
             updateLayerList();
             updateOverlay();
+            scheduleAutosave();
         }
 
         function moveLayerUp(layerId) {
@@ -886,6 +1158,7 @@
                 updateLayerList();
                 updateOverlay();
                 showHUD('Layer moved up');
+                scheduleAutosave();
             }
         }
 
@@ -896,6 +1169,7 @@
                 updateLayerList();
                 updateOverlay();
                 showHUD('Layer moved down');
+                scheduleAutosave();
             }
         }
         function rotateLayer90(layerId) {
@@ -919,6 +1193,7 @@
             updateLayerList();
             updateOverlay();
             showHUD('Layer rotated 90°');
+            scheduleAutosave();
         }
 
         function updateLayerList() {
@@ -1374,11 +1649,13 @@
                 }
                 updateOverlay();
                 updateLayerList();
+                scheduleAutosave();
             } else if (layer.type === 'mask') {
                 layer.points.push({ x, y });
                 updateOverlay();
                 updateLayerList();
                 showHUD(`Mask point ${layer.points.length} added`);
+                scheduleAutosave();
             }
         }
 
@@ -1560,6 +1837,7 @@
 
         function onMouseUp() {
             app.dragging.active = false;
+            scheduleAutosave();
         }
 
         // ===== Save/Load System =====
@@ -1595,6 +1873,7 @@
             a.click();
             URL.revokeObjectURL(url);
             showHUD('Project saved');
+            clearAutosave();
         }
 
         async function loadProject(file) {
@@ -1653,6 +1932,16 @@
         function loadMediaFileWithId(file, id, expectedFilename) {
             const isGif = file.type === 'image/gif';
             const isVideo = file.type.startsWith('video/');
+            const filename = expectedFilename || file.name; // Ensure filename is set correctly
+
+            console.log('[media] relink request', {
+                name: file.name,
+                filename,
+                kind: isGif ? 'gif' : (isVideo ? 'video' : 'image'),
+                type: file.type,
+                size: file.size,
+                id
+            });
 
             if (isGif) {
                 const url = URL.createObjectURL(file);
@@ -1664,17 +1953,20 @@
                     animator.animateInCanvas(gifCanvas);
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'gif',
                         kind: 'gif',
                         element: gifCanvas,
                         width: gifCanvas.width,
                         height: gifCanvas.height,
                         url: url,
-                        filename: expectedFilename
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
+                    linkMediaToLayers();
+                    console.log('[media] relinked gif', { name: media.name, id: media.id, width: media.width, height: media.height });
                 });
             } else if (isVideo) {
                 const video = document.createElement('video');
@@ -1687,16 +1979,19 @@
                 video.addEventListener('loadedmetadata', () => {
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'video',
                         kind: 'video',
                         element: video,
                         width: video.videoWidth,
                         height: video.videoHeight,
-                        filename: expectedFilename
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
+                    linkMediaToLayers();
+                    console.log('[media] relinked video', { name: media.name, id: media.id, width: media.width, height: media.height });
                     video.play().catch(e => {});
                 });
             } else {
@@ -1704,16 +1999,19 @@
                 img.onload = () => {
                     const media = {
                         id: id,
-                        name: file.name,
+                        name: filename,
                         type: 'image',
                         kind: 'image',
                         element: img,
                         width: img.width,
                         height: img.height,
-                        filename: expectedFilename
+                        filename: filename,
+                        needsRelink: false
                     };
-                    app.mediaLibrary.push(media);
+                    upsertMedia(media);
                     updateMediaList();
+                    linkMediaToLayers();
+                    console.log('[media] relinked image', { name: media.name, id: media.id, width: media.width, height: media.height });
                 };
                 img.src = URL.createObjectURL(file);
             }
@@ -1721,9 +2019,9 @@
 
         function confirmLoadProject() {
           if (!app.pendingProjectData) return;
-          
+
           const project = app.pendingProjectData;
-          
+
           // Restore layers
           app.layers = (project.layers || []).map(l => ({
               id: l.id,
@@ -1734,11 +2032,12 @@
               enabled: l.enabled !== false,
               points: l.points || []
           }));
-          
+
           // Re-link media by matching filenames
           app.layers.forEach(layer => {
               if (layer.type === 'projection' && layer.mediaName) {
-                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  const target = normalizeMediaName(layer.mediaName);
+                  const media = app.mediaLibrary.find(m => !m.needsRelink && normalizeMediaName(m.filename || m.name) === target);
                   if (media) {
                       layer.mediaId = media.id;
                       console.log(`✓ Linked "${media.name}" to "${layer.name}"`);
@@ -1747,19 +2046,19 @@
                   }
               }
           });
-          
+
           if (app.layers.length > 0) {
               app.selectedLayerId = app.layers[0].id;
           }
-          
+
           updateLayerList();
           updateOverlay();
-          
+          scheduleAutosave();
+
           document.getElementById('loadProjectModal').classList.remove('visible');
           app.pendingProjectData = null;
           showHUD('Project loaded - media linked');
       }
-
 
         function cancelLoadProject() {
             app.mediaLibrary = [];
@@ -1768,7 +2067,6 @@
             updateMediaList();
         }
 
-        // ===== Fullscreen =====
         function toggleFullscreen() {
             const container = document.getElementById('canvasContainer');
             
@@ -1850,12 +2148,12 @@
                 e.preventDefault();
                 dropZone.classList.remove('drag-over');
                 const files = Array.from(e.dataTransfer.files);
-                files.forEach(loadMediaFile);
+                files.forEach(file => loadMediaFile(file));
             });
             
             fileInput.addEventListener('change', (e) => {
                 const files = Array.from(e.target.files);
-                files.forEach(loadMediaFile);
+                files.forEach(file => loadMediaFile(file));
                 fileInput.value = '';
             });
             
@@ -1886,6 +2184,19 @@
             
             document.getElementById('confirmLoadBtn').addEventListener('click', confirmLoadProject);
             document.getElementById('cancelLoadBtn').addEventListener('click', cancelLoadProject);
+
+            document.getElementById('autosaveRecoverBtn').addEventListener('click', () => {
+                if (!pendingAutosaveSnapshot) return;
+                document.getElementById('autosaveModal').classList.remove('visible');
+                restoreFromSnapshot(pendingAutosaveSnapshot).catch(err => console.warn('Autosave restore failed:', err));
+                pendingAutosaveSnapshot = null;
+            });
+
+            document.getElementById('autosaveDiscardBtn').addEventListener('click', () => {
+                clearAutosave();
+                pendingAutosaveSnapshot = null;
+                document.getElementById('autosaveModal').classList.remove('visible');
+            });
             
             document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
             document.getElementById('toggleHandlesBtn').addEventListener('click', toggleHandles);
@@ -1916,6 +2227,7 @@
             initSidebarResize(); // ADD THIS LINE
             animate();
             showHUD('Ready - Add a layer to start');
+            checkForAutosave();
         }
 
         window.addEventListener('load', init);
