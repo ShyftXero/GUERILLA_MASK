@@ -78,6 +78,7 @@ Shared interactions:
 - Selecting a layer makes it active; z‑order changes with Up/Down
 - Delete removes the layer
 - Toggle Handles shows/hides SVG handles/paths for Projection/Mask. Marker does not use handles.
+- Selected Projection/Mask layers also show center/scale/rotate handles for whole-layer transforms.
 - Clicking the canvas when drawing:
   - Projection: adds snapped points until 4 are set, then finishes
   - Mask: keeps adding until user clicks “Complete Mask”
@@ -159,6 +160,8 @@ Shared interactions:
   - Space: play/pause all media
   - F: fullscreen
   - Optional: Delete removes active layer (if you add this, document it in the UI)
+- Mouse:
+  - Selected Projection/Mask: drag center handle to move, drag scale handle to resize, drag rotate handle to spin
 
 ————————————
 ### Core data structures
@@ -219,6 +222,7 @@ Marker rendering:
 - SVG handles:
   - Projection: draw a path for the quad and circular draggable points when handlesVisible is true
   - Mask: path for polygon and draggable points
+  - Selected Projection/Mask layers include center/scale/rotate handles for whole-layer transforms
   - Marker: no handles
 
 ————————————
@@ -234,6 +238,7 @@ Marker rendering:
 - Reorder layers; z‑order reflected in rendering.
 - Assign media to Projection layers; GIFs animate; videos play/pause with global Play/Pause.
 - Toggle handles; handles only affect Projection/Mask visibility.
+- Selected Projection/Mask layers can be moved, scaled, or rotated with handles.
 - Save produces JSON matching schema; Load restores state; images hydrated; GIF/Video stubs indicate relink; relinking by uploading same filename works without breaking layer references.
 - Fullscreen fills stage; HUD behavior as specified.
 - Marker color picker affects active Marker layer immediately; strokes persist and export.
@@ -256,3 +261,8 @@ Marker rendering:
 - One HTML file named projection_mapper.html implementing everything above.
 - Brief README comment at top of file describing controls and shortcuts.
 - Self‑check routine or minimal test notes covering: create each layer type, draw, assign media, reorder, save, reload, relink GIF/video, fullscreen HUD.
+
+
+Governance:
+Update `prompt.txt` whenever features or defaults change. This file is the lightweight product spec and the source of truth. Enhance this file as needed but keep the spirit of it. This Governance block is essential and must always be followed.
+Also keep `README.md` in sync with feature and default changes. don't use a lot of emojis

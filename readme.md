@@ -69,6 +69,7 @@ No special GPU or drivers required.
 - Mouse:
   - Projection: click 4 points (clockwise)
   - Mask: click 3+ points, then “Complete Mask”
+  - Selected Projection/Mask: drag center handle to move, drag scale handle to resize, drag rotate handle to spin
   - Marker: press/drag to draw; color via picker
 
 ---

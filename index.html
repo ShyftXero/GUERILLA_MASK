@@ -26,7 +26,7 @@
         }
 
         #sidebar {
-            width: 350px;
+            width: 400px;
             height: 100%;
             background: #2a2a2a;
             border-right: 1px solid #3a3a3a;
@@ -50,12 +50,10 @@
         }
 
         #layerList {
-          flex: 1; 
-          height: 100%;
-          min-height: 100%;
-          overflow-y: scroll; 
-          margin-top: 10px;
-          margin-bottom: 100px;
+                    flex: 1;
+                    min-height: 0;
+                    overflow-y: auto;
+                    margin-top: 10px;
         }
 
         #dropZone {
@@ -73,7 +71,7 @@
             border-color: #6ab7ff;
         }
 
-        #mediaList, #layerList {
+        #mediaList {
             max-height: 200px;
             overflow-y: auto;
             margin-top: 10px;
@@ -88,7 +86,7 @@
             transition: all 0.2s;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
         }
 
         .media-item:hover, .layer-item:hover {
@@ -107,6 +105,8 @@
         .layer-controls {
             display: flex;
             gap: 5px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
         }
 
         button {
@@ -176,6 +176,14 @@
             pointer-events: auto;
         }
 
+        .handle.scale {
+            cursor: nwse-resize;
+        }
+
+        .handle.rotate {
+            cursor: grab;
+        }
+
         .handle circle {
             fill: #4a9eff;
             stroke: white;
@@ -194,6 +202,25 @@
 
         .handle.first circle {
             fill: #ef4444;
+        }
+
+        .handle.scale rect {
+            fill: #10b981;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .handle.rotate circle {
+            fill: #a855f7;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .rotate-line {
+            stroke: #a855f7;
+            stroke-width: 2;
+            stroke-dasharray: 4 4;
+            pointer-events: none;
         }
 
         .quad-outline, .mask-outline {
@@ -486,7 +513,7 @@
         function initSidebarResize() {
             const sidebar = document.getElementById('sidebar');
             const resizer = document.getElementById('sidebarResizer');
-            const minWidth = 250;
+            const minWidth = 320;
             const maxWidth = 800;
             
             let isResizing = false;
@@ -540,6 +567,27 @@
 
         function pxToPct(px, size) {
             return Math.max(0, Math.min(100, (px / size) * 100));
+        }
+
+        function clampPct(value) {
+            return Math.max(0, Math.min(100, value));
+        }
+
+        function getLayerCenter(layer) {
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            return { x: centerX, y: centerY };
+        }
+
+        function getLayerBounds(layer) {
+            const xs = layer.points.map(p => p.x);
+            const ys = layer.points.map(p => p.y);
+            return {
+                minX: Math.min(...xs),
+                maxX: Math.max(...xs),
+                minY: Math.min(...ys),
+                maxY: Math.max(...ys)
+            };
         }
 
         function toggleHandles() {
@@ -1196,8 +1244,8 @@
         function updateOverlay() {
             const svg = document.getElementById('svgOverlay');
             svg.innerHTML = '';
-            
-            const rect = app.canvas.element.getBoundingClientRect();
+            const width = app.canvas.logicalWidth;
+            const height = app.canvas.logicalHeight;
             
             app.layers.forEach(layer => {
                 if (!layer.enabled || layer.points.length === 0) return;
@@ -1207,7 +1255,7 @@
                 // Draw outline
                 const outline = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                 const pointsStr = layer.points.map(p => 
-                    `${pctToPx(p.x, rect.width)},${pctToPx(p.y, rect.height)}`
+                    `${pctToPx(p.x, width)},${pctToPx(p.y, height)}`
                 ).join(' ');
                 outline.setAttribute('points', pointsStr);
                 outline.setAttribute('class', layer.type === 'mask' ? 'mask-outline' : 'quad-outline');
@@ -1230,8 +1278,8 @@
                     handle.setAttribute('class', 'handle' + (idx === 0 ? ' first' : ''));
                     
                     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    circle.setAttribute('cx', pctToPx(point.x, rect.width));
-                    circle.setAttribute('cy', pctToPx(point.y, rect.height));
+                    circle.setAttribute('cx', pctToPx(point.x, width));
+                    circle.setAttribute('cy', pctToPx(point.y, height));
                     circle.setAttribute('r', 8);
                     
                     handle.appendChild(circle);
@@ -1242,20 +1290,63 @@
                 // Center of mass handle for both projection and mask layers (when they have 3+ points)
                 if ((layer.type === 'projection' && layer.points.length === 4) || 
                     (layer.type === 'mask' && layer.points.length >= 3)) {
-                    const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
-                    const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+                    const { x: centerX, y: centerY } = getLayerCenter(layer);
                     
                     const centerHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     centerHandle.setAttribute('class', 'handle center-of-mass');
                     
                     const centerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                    centerCircle.setAttribute('cx', pctToPx(centerX, rect.width));
-                    centerCircle.setAttribute('cy', pctToPx(centerY, rect.height));
+                    centerCircle.setAttribute('cx', pctToPx(centerX, width));
+                    centerCircle.setAttribute('cy', pctToPx(centerY, height));
                     centerCircle.setAttribute('r', 10);
                     
                     centerHandle.appendChild(centerCircle);
                     centerHandle.addEventListener('mousedown', (e) => startDragCenter(e, layer.id));
                     g.appendChild(centerHandle);
+                }
+
+                if (layer.id === app.selectedLayerId && layer.points.length >= 3) {
+                    const bounds = getLayerBounds(layer);
+                    const center = getLayerCenter(layer);
+
+                    const rotateOffsetPx = 30;
+                    const rotateX = pctToPx(center.x, width);
+                    const rotateY = pctToPx(bounds.minY, height) - rotateOffsetPx;
+
+                    const rotateLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    rotateLine.setAttribute('x1', pctToPx(center.x, width));
+                    rotateLine.setAttribute('y1', pctToPx(bounds.minY, height));
+                    rotateLine.setAttribute('x2', rotateX);
+                    rotateLine.setAttribute('y2', rotateY);
+                    rotateLine.setAttribute('class', 'rotate-line');
+                    g.appendChild(rotateLine);
+
+                    const rotateHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    rotateHandle.setAttribute('class', 'handle rotate');
+
+                    const rotateCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    rotateCircle.setAttribute('cx', rotateX);
+                    rotateCircle.setAttribute('cy', rotateY);
+                    rotateCircle.setAttribute('r', 8);
+                    rotateHandle.appendChild(rotateCircle);
+                    rotateHandle.addEventListener('mousedown', (e) => startDragRotate(e, layer.id));
+                    g.appendChild(rotateHandle);
+
+                    const scaleHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    scaleHandle.setAttribute('class', 'handle scale');
+
+                    const scaleRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    const scaleX = pctToPx(bounds.maxX, width);
+                    const scaleY = pctToPx(bounds.maxY, height);
+                    scaleRect.setAttribute('x', scaleX - 7);
+                    scaleRect.setAttribute('y', scaleY - 7);
+                    scaleRect.setAttribute('width', 14);
+                    scaleRect.setAttribute('height', 14);
+                    scaleRect.setAttribute('rx', 2);
+                    scaleRect.setAttribute('ry', 2);
+                    scaleHandle.appendChild(scaleRect);
+                    scaleHandle.addEventListener('mousedown', (e) => startDragScale(e, layer.id));
+                    g.appendChild(scaleHandle);
                 }
                 
                 svg.appendChild(g);
@@ -1355,6 +1446,60 @@
             updateLayerList();
         }
 
+        function startDragScale(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.points.length < 3) return;
+
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            const center = getLayerCenter(layer);
+            const dx = mouseX - center.x;
+            const dy = mouseY - center.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            app.dragging = {
+                active: true,
+                type: 'scale',
+                layerId: layerId,
+                startPoints: layer.points.map(p => ({ ...p })),
+                startDistance: dist,
+                center
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function startDragRotate(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.points.length < 3) return;
+
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            const center = getLayerCenter(layer);
+            const startAngle = Math.atan2(mouseY - center.y, mouseX - center.x);
+
+            app.dragging = {
+                active: true,
+                type: 'rotate',
+                layerId: layerId,
+                startPoints: layer.points.map(p => ({ ...p })),
+                startAngle,
+                center
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
         function onMouseMove(e) {
             if (!app.dragging.active) return;
             
@@ -1380,6 +1525,33 @@
                 layer.points.forEach(p => {
                     p.x += dx;
                     p.y += dy;
+                });
+            } else if (app.dragging.type === 'scale') {
+                const center = app.dragging.center;
+                const dx = mouseX - center.x;
+                const dy = mouseY - center.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (app.dragging.startDistance <= 0.0001) return;
+                const scale = dist / app.dragging.startDistance;
+
+                layer.points = app.dragging.startPoints.map(p => ({
+                    x: clampPct(center.x + (p.x - center.x) * scale),
+                    y: clampPct(center.y + (p.y - center.y) * scale)
+                }));
+            } else if (app.dragging.type === 'rotate') {
+                const center = app.dragging.center;
+                const angle = Math.atan2(mouseY - center.y, mouseX - center.x);
+                const delta = angle - app.dragging.startAngle;
+                const cos = Math.cos(delta);
+                const sin = Math.sin(delta);
+
+                layer.points = app.dragging.startPoints.map(p => {
+                    const dx = p.x - center.x;
+                    const dy = p.y - center.y;
+                    return {
+                        x: clampPct(center.x + dx * cos - dy * sin),
+                        y: clampPct(center.y + dx * sin + dy * cos)
+                    };
                 });
             }
             
