@@ -530,7 +530,7 @@
         const AUTOSAVE_KEY = 'guerilla_mask_autosave_v1';
         const AUTOSAVE_DELAY = 600;
         let autosaveTimer = null;
-    let pendingAutosaveSnapshot = null;
+    let pendingMediaAssignment = null;
 
         // ===== Sidebar Resize =====
         const sidebarResize = {
@@ -1209,10 +1209,15 @@
                 
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'layer-name';
-                nameDiv.innerHTML = `
-                    <div>${layer.name}</div>
-                    ${layer.mediaName ? `<div class="layer-info">📎 ${layer.mediaName}</div>` : ''}
-                `;
+                const nameLabel = document.createElement('div');
+                nameLabel.textContent = layer.name;
+                nameDiv.appendChild(nameLabel);
+                if (layer.mediaName) {
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'layer-info';
+                    infoDiv.textContent = `📎 ${layer.mediaName}`;
+                    nameDiv.appendChild(infoDiv);
+                }
                 nameDiv.onclick = () => selectLayer(layer.id);
                 
                 const controls = document.createElement('div');
@@ -1891,10 +1896,14 @@
                 (project.media || []).forEach(mediaInfo => {
                     const item = document.createElement('div');
                     item.className = 'media-upload-item';
-                    item.innerHTML = `
-                        <span>${mediaInfo.filename || mediaInfo.name}</span>
-                        <button class="small" onclick="selectMediaForLoad('${mediaInfo.id}', '${mediaInfo.kind}', '${mediaInfo.filename || mediaInfo.name}')">Select File</button>
-                    `;
+                    const span = document.createElement('span');
+                    span.textContent = mediaInfo.filename || mediaInfo.name;
+                    const btn = document.createElement('button');
+                    btn.className = 'small';
+                    btn.textContent = 'Select File';
+                    btn.addEventListener('click', () => selectMediaForLoad(mediaInfo.id, mediaInfo.kind, mediaInfo.filename || mediaInfo.name));
+                    item.appendChild(span);
+                    item.appendChild(btn);
                     item.dataset.mediaId = mediaInfo.id;
                     item.dataset.filename = mediaInfo.filename || mediaInfo.name;
                     mediaList.appendChild(item);
