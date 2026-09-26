@@ -1762,7 +1762,15 @@
             svg.innerHTML = '';
             const width = app.canvas.logicalWidth;
             const height = app.canvas.logicalHeight;
-            
+            const canvas = app.canvas.element;
+            const offsetX = canvas.offsetLeft;
+            const offsetY = canvas.offsetTop;
+            const canvasWidth = canvas.offsetWidth;
+            const canvasHeight = canvas.offsetHeight;
+            svg.style.left = `${offsetX}px`;
+            svg.style.top = `${offsetY}px`;
+            svg.style.width = `${canvasWidth}px`;
+            svg.style.height = `${canvasHeight}px`;
             app.layers.forEach(layer => {
                 if (!layer.enabled || layer.points.length === 0) return;
                 
