@@ -1006,7 +1006,7 @@
                 canvas.style.height = rect.height + 'px';
 
                 // Scale context so drawing uses CSS pixels
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                app.canvas.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
                 // Update SVG viewBox to match logical size
                 const svg = document.getElementById('svgOverlay');
