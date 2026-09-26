@@ -752,32 +752,33 @@
                 return entry;
             });
 
+            const layersArray = app.layers.map(l => {
+                const base = {
+                    id: l.id,
+                    type: l.type,
+                    name: l.name,
+                    mediaId: l.mediaId,
+                    mediaName: l.mediaName,
+                    enabled: l.enabled,
+                    points: l.points,
+                    playing: true
+                };
+                if (l.type === 'marker') {
+                    base.strokes = l.strokes || [];
+                    base.color = l.color || '#ffeb3b';
+                } else if (l.type === 'physics') {
+                    base.objects = l.objects || [];
+                    base.gravity = l.gravity !== undefined ? l.gravity : 0.2;
+                }
+                return base;
+            });
+            console.log('Snapshot layers:', layersArray.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id})));
             return {
                 version: "1.5.0",
                 savedAt: new Date().toISOString(),
                 autosave: true,
                 media,
-                layers: app.layers.map(l => {
-                    const base = {
-                        id: l.id,
-                        type: l.type,
-                        name: l.name,
-                        mediaId: l.mediaId,
-                        mediaName: l.mediaName,
-                        enabled: l.enabled,
-                        points: l.points,
-                        playing: true
-                    };
-                    if (l.type === 'marker') {
-                        base.strokes = l.strokes || [];
-                        base.color = l.color || '#ffeb3b';
-                    } else if (l.type === 'physics') {
-                        base.objects = l.objects || [];
-                        base.gravity = l.gravity !== undefined ? l.gravity : 0.2;
-                    }
-                    return base;
-                }),
-                console.log('Snapshot layers:', snapshot.layers.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id}))),
+                layers: layersArray,
                 selectedLayerId: app.selectedLayerId,
                 layerType: app.layerType
             };
