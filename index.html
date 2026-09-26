@@ -772,7 +772,7 @@
                 }
                 return base;
             });
-            console.log('Snapshot layers:', layersArray.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id})));
+            console.log('Snapshot layers:', layersArray.map(l => ({id: l.id, type: l.type, enabled: l.enabled, pointsLength: l.points.length, mediaId: l.mediaId})));
             return {
                 version: "1.5.0",
                 savedAt: new Date().toISOString(),
@@ -870,7 +870,8 @@
                 }
                 return base;
             });
-            console.log('Restored layers:', app.layers.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id})));
+            console.log('Restored layers:', app.layers.map(l => ({id: l.id, type: l.type, enabled: l.enabled, pointsLength: l.points.length, mediaId: l.mediaId})));
+            console.log('Canvas logical size:', app.canvas.logicalWidth, 'x', app.canvas.logicalHeight);
 
             app.layers.forEach(layer => {
                 if (layer.type !== 'projection' || !layer.mediaId) return;
