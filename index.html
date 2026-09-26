@@ -777,6 +777,7 @@
                     }
                     return base;
                 }),
+                console.log('Snapshot layers:', snapshot.layers.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id}))),
                 selectedLayerId: app.selectedLayerId,
                 layerType: app.layerType
             };
@@ -868,6 +869,7 @@
                 }
                 return base;
             });
+            console.log('Restored layers:', app.layers.map(l => ({type: l.type, pointsLength: l.points.length, id: l.id})));
 
             app.layers.forEach(layer => {
                 if (layer.type !== 'projection' || !layer.mediaId) return;
