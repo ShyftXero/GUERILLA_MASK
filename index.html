@@ -531,6 +531,7 @@
         const AUTOSAVE_DELAY = 600;
         let autosaveTimer = null;
     let pendingMediaAssignment = null;
+        const activeObjectURLs = new Map(); // mediaId → url
 
         // ===== Sidebar Resize =====
         const sidebarResize = {
@@ -635,6 +636,10 @@
 
         function upsertMedia(media) {
             const target = normalizeMediaName(media.filename || media.name);
+            const existing = app.mediaLibrary.find(m => m.id === media.id);
+            if (existing) {
+                revokeMediaURLs(media.id);
+            }
             app.mediaLibrary = app.mediaLibrary.filter(m =>
                 m.id === media.id || !(m.kind === media.kind && normalizeMediaName(m.filename || m.name) === target)
             );
@@ -668,6 +673,26 @@
             autosaveTimer = setTimeout(() => {
                 saveAutosave().catch(err => console.warn('Autosave failed:', err));
             }, AUTOSAVE_DELAY);
+        }
+
+        function trackObjectURL(mediaId, url) {
+            // Revoke any existing URL for this mediaId first
+            if (activeObjectURLs.has(mediaId)) {
+                URL.revokeObjectURL(activeObjectURLs.get(mediaId));
+            }
+            activeObjectURLs.set(mediaId, url);
+        }
+
+        function revokeMediaURLs(mediaId) {
+            if (activeObjectURLs.has(mediaId)) {
+                URL.revokeObjectURL(activeObjectURLs.get(mediaId));
+                activeObjectURLs.delete(mediaId);
+            }
+        }
+
+        function revokeAllMediaURLs() {
+            activeObjectURLs.forEach((url) => URL.revokeObjectURL(url));
+            activeObjectURLs.clear();
         }
 
         function getImageDataUrl(media) {
@@ -960,6 +985,7 @@
 
             if (isGif) {
                 const url = URL.createObjectURL(file);
+                trackObjectURL(id, url);
                 const gifCanvas = document.createElement('canvas');
                 gifCanvas.width = 2;
                 gifCanvas.height = 2;
@@ -980,12 +1006,24 @@
                     };
                     upsertMedia(media);
                     updateMediaList();
-                    linkMediaToLayers(); // ADD THIS LINE
+                    linkMediaToLayers();
                     console.log('[media] loaded gif', { name: media.name, id: media.id, width: media.width, height: media.height });
+                    if (pendingMediaAssignment) {
+                        const target = app.layers.find(l => l.id === pendingMediaAssignment);
+                        if (target && target.type === 'projection') {
+                            target.mediaId = media.id;
+                            target.mediaName = media.name;
+                            showHUD(`Media assigned to ${target.name}`);
+                        }
+                        pendingMediaAssignment = null;
+                        updateLayerList();
+                        scheduleAutosave();
+                    }
                 });
             } else if (isVideo) {
                 const video = document.createElement('video');
                 video.src = URL.createObjectURL(file);
+                trackObjectURL(id, video.src);
                 video.loop = true;
                 video.muted = true;
                 video.playsInline = true;
@@ -1005,8 +1043,19 @@
                     };
                     upsertMedia(media);
                     updateMediaList();
-                    linkMediaToLayers(); // ADD THIS LINE
+                    linkMediaToLayers();
                     console.log('[media] loaded video', { name: media.name, id: media.id, width: media.width, height: media.height });
+                    if (pendingMediaAssignment) {
+                        const target = app.layers.find(l => l.id === pendingMediaAssignment);
+                        if (target && target.type === 'projection') {
+                            target.mediaId = media.id;
+                            target.mediaName = media.name;
+                            showHUD(`Media assigned to ${target.name}`);
+                        }
+                        pendingMediaAssignment = null;
+                        updateLayerList();
+                        scheduleAutosave();
+                    }
                 });
                 
                 video.play().catch(e => console.warn('Video autoplay failed:', e));
@@ -1026,10 +1075,22 @@
                     };
                     upsertMedia(media);
                     updateMediaList();
-                    linkMediaToLayers(); // ADD THIS LINE
+                    linkMediaToLayers();
                     console.log('[media] loaded image', { name: media.name, id: media.id, width: media.width, height: media.height });
+                    if (pendingMediaAssignment) {
+                        const target = app.layers.find(l => l.id === pendingMediaAssignment);
+                        if (target && target.type === 'projection') {
+                            target.mediaId = media.id;
+                            target.mediaName = media.name;
+                            showHUD(`Media assigned to ${target.name}`);
+                        }
+                        pendingMediaAssignment = null;
+                        updateLayerList();
+                        scheduleAutosave();
+                    }
                 };
                 img.src = URL.createObjectURL(file);
+                trackObjectURL(id, img.src);
             }
         }
 
@@ -1050,26 +1111,20 @@
         function assignMediaToLayer(layerId) {
             const layer = app.layers.find(l => l.id === layerId);
             if (!layer || layer.type !== 'projection') return;
-            
+
+            pendingMediaAssignment = layerId;
+
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/*,video/*';
+            input.multiple = true;
             input.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    loadMediaFile(file);
-                    // Wait a moment for media to load, then assign
-                    setTimeout(() => {
-                        const media = app.mediaLibrary[app.mediaLibrary.length - 1];
-                        if (media) {
-                            layer.mediaId = media.id;
-                            layer.mediaName = media.name;
-                            updateLayerList();
-                            showHUD('Media assigned to layer');
-                            scheduleAutosave();
-                        }
-                    }, 100);
-                }
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+                files.forEach(file => loadMediaFile(file));
+                // Assignment happens in load callbacks via pendingMediaAssignment
+                showHUD(`Loading ${files.length} file${files.length > 1 ? 's' : ''}...`);
+                scheduleAutosave();
             };
             input.click();
         }
@@ -2070,6 +2125,7 @@
       }
 
         function cancelLoadProject() {
+            revokeAllMediaURLs();
             app.mediaLibrary = [];
             app.pendingProjectData = null;
             document.getElementById('loadProjectModal').classList.remove('visible');
