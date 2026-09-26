@@ -930,23 +930,26 @@
 
             function resize() {
                 const rect = container.getBoundingClientRect();
-                
+                const dpr = window.devicePixelRatio || 1;
+
                 // Store logical dimensions
                 app.canvas.logicalWidth = rect.width;
                 app.canvas.logicalHeight = rect.height;
-                
-                // Set canvas resolution to match display size
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-                
-                // CSS size matches container
+                app.canvas.dpr = dpr;
+
+                // Set canvas resolution scaled by DPR
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
                 canvas.style.width = rect.width + 'px';
                 canvas.style.height = rect.height + 'px';
-                
+
+                // Scale context so drawing uses CSS pixels
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
                 // Update SVG viewBox to match logical size
                 const svg = document.getElementById('svgOverlay');
                 svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
-                
+
                 // Update overlay handles after resize
                 updateOverlay();
             }
