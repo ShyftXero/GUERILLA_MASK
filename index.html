@@ -1305,14 +1305,16 @@
             const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
             
             // Rotate each point 90 degrees clockwise around center
-            layer.points.forEach(point => {
-                const dx = point.x - centerX;
-                const dy = point.y - centerY;
-                
+            const rotated = layer.points.map(p => {
+                const dx = p.x - centerX;
+                const dy = p.y - centerY;
                 // 90° clockwise rotation: (x, y) -> (y, -x)
-                point.x = centerX + dy;
-                point.y = centerY - dx;
+                return {
+                    x: centerX + dy,
+                    y: centerY - dx
+                };
             });
+            layer.points = rotated;
             
             updateLayerList();
             updateOverlay();
