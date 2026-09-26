@@ -463,12 +463,19 @@
                 <div class="layer-type-selector">
                     <button id="projectionTypeBtn" class="small">Projection</button>
                     <button id="maskTypeBtn" class="small orange">Mask</button>
+                    <button id="markerTypeBtn" class="small">Marker</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                    <label style="font-size:11px;color:#9ca3af;">Color</label>
+                    <input type="color" id="markerColor" value="#ffeb3b" style="width:32px;height:24px;border:none;background:none;cursor:pointer;">
                 </div>
                 <button id="addLayerBtn">+ Add Layer</button>
                 <button id="completeMaskBtn" class="small orange" style="margin-top: 5px;">Complete Mask</button>
+                <button id="clearAllBtn" class="small danger" style="margin-top: 5px;">Clear All Layers</button>
                 <div class="notice">
                     <strong>Projection:</strong> Click 4 points clockwise<br>
                     <strong>Mask:</strong> Click 3+ points, then Complete Mask<br>
+                    <strong>Marker:</strong> Press/drag to draw strokes<br>
                     <strong>H key:</strong> Toggle handles visibility
                 </div>
                 <h3 style="margin-top: 15px;">Layers</h3>
@@ -524,7 +531,8 @@
             mode: "idle",
             addingPoints: false,
             pendingProjectData: null,
-            handlesVisible: true
+            handlesVisible: true,
+            drawingStroke: null  // current marker stroke being drawn
         };
 
         const AUTOSAVE_KEY = 'guerilla_mask_autosave_v1';
@@ -727,16 +735,23 @@
                 savedAt: new Date().toISOString(),
                 autosave: true,
                 media,
-                layers: app.layers.map(l => ({
-                    id: l.id,
-                    type: l.type,
-                    name: l.name,
-                    mediaId: l.mediaId,
-                    mediaName: l.mediaName,
-                    enabled: l.enabled,
-                    points: l.points,
-                    playing: true
-                })),
+                layers: app.layers.map(l => {
+                    const base = {
+                        id: l.id,
+                        type: l.type,
+                        name: l.name,
+                        mediaId: l.mediaId,
+                        mediaName: l.mediaName,
+                        enabled: l.enabled,
+                        points: l.points,
+                        playing: true
+                    };
+                    if (l.type === 'marker') {
+                        base.strokes = l.strokes || [];
+                        base.color = l.color || '#ffeb3b';
+                    }
+                    return base;
+                }),
                 selectedLayerId: app.selectedLayerId,
                 layerType: app.layerType
             };
@@ -809,15 +824,22 @@
 
             const mediaById = new Map(app.mediaLibrary.map(m => [m.id, m]));
 
-            app.layers = (snapshot.layers || []).map(l => ({
-                id: l.id,
-                type: l.type,
-                name: l.name,
-                mediaId: l.mediaId,
-                mediaName: l.mediaName,
-                enabled: l.enabled !== false,
-                points: l.points || []
-            }));
+            app.layers = (snapshot.layers || []).map(l => {
+                const base = {
+                    id: l.id,
+                    type: l.type,
+                    name: l.name,
+                    mediaId: l.mediaId,
+                    mediaName: l.mediaName,
+                    enabled: l.enabled !== false,
+                    points: l.points || []
+                };
+                if (l.type === 'marker') {
+                    base.strokes = l.strokes || [];
+                    base.color = l.color || '#ffeb3b';
+                }
+                return base;
+            });
 
             app.layers.forEach(layer => {
                 if (layer.type !== 'projection' || !layer.mediaId) return;
@@ -1137,11 +1159,13 @@
             const layer = {
                 id: uuid(),
                 type: app.layerType,
-                name: `${app.layerType === 'projection' ? 'Projection' : 'Mask'} ${app.layers.length + 1}`,
+                name: `${app.layerType === 'projection' ? 'Projection' : app.layerType === 'mask' ? 'Mask' : 'Marker'} ${app.layers.length + 1}`,
                 mediaId: null,
                 mediaName: null,
                 enabled: true,
-                points: []
+                points: [],
+                strokes: app.layerType === 'marker' ? [] : undefined,
+                color: app.layerType === 'marker' ? document.getElementById('markerColor').value : undefined
             };
             
             app.layers.push(layer);
@@ -1370,30 +1394,30 @@
             const ctx = app.canvas.ctx;
             const w = app.canvas.logicalWidth;
             const h = app.canvas.logicalHeight;
-            
+
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, w, h);
-            
+
             // Render in order (first = bottom, last = top)
             app.layers.forEach(layer => {
                 if (!layer.enabled) return;
-                
+
                 if (layer.type === 'projection' && layer.points.length === 4) {
                     const media = app.mediaLibrary.find(m => m.id === layer.mediaId);
                     if (!media || !media.element) return;
-                    
+
                     const pts = layer.points.map(p => ({
                         x: pctToPx(p.x, w),
                         y: pctToPx(p.y, h)
                     }));
-                    
+
                     renderQuad(ctx, media.element, pts);
                 } else if (layer.type === 'mask' && layer.points.length >= 3) {
                     const pts = layer.points.map(p => ({
                         x: pctToPx(p.x, w),
                         y: pctToPx(p.y, h)
                     }));
-                    
+
                     ctx.save();
                     ctx.globalCompositeOperation = 'destination-out';
                     ctx.fillStyle = '#000';
@@ -1404,6 +1428,22 @@
                     }
                     ctx.closePath();
                     ctx.fill();
+                    ctx.restore();
+                } else if (layer.type === 'marker' && layer.strokes) {
+                    ctx.save();
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    layer.strokes.forEach(stroke => {
+                        if (stroke.length < 2) return;
+                        ctx.strokeStyle = layer.color || '#ffeb3b';
+                        ctx.lineWidth = 4 * (app.canvas.dpr || 1);
+                        ctx.beginPath();
+                        ctx.moveTo(pctToPx(stroke[0].x, w), pctToPx(stroke[0].y, h));
+                        for (let i = 1; i < stroke.length; i++) {
+                            ctx.lineTo(pctToPx(stroke[i].x, w), pctToPx(stroke[i].y, h));
+                        }
+                        ctx.stroke();
+                    });
                     ctx.restore();
                 }
             });
@@ -1719,6 +1759,64 @@
                 updateLayerList();
                 showHUD(`Mask point ${layer.points.length} added`);
                 scheduleAutosave();
+            }
+        }
+
+        // ===== Marker Freehand Drawing =====
+        function onCanvasPointerDown(e) {
+            if (app.dragging.active) return;
+            const layer = app.layers.find(l => l.id === app.selectedLayerId);
+            if (!layer || layer.type !== 'marker' || !layer.enabled) return;
+
+            const rect = app.canvas.element.getBoundingClientRect();
+            const x = pxToPct(e.clientX - rect.left, rect.width);
+            const y = pxToPct(e.clientY - rect.top, rect.height);
+
+            app.drawingStroke = [{ x, y }];
+            app.addingPoints = true;
+        }
+
+        function onCanvasPointerMove(e) {
+            if (app.drawingStroke) {
+                const layer = app.layers.find(l => l.id === app.selectedLayerId);
+                if (!layer) return;
+                const rect = app.canvas.element.getBoundingClientRect();
+                const x = pxToPct(e.clientX - rect.left, rect.width);
+                const y = pxToPct(e.clientY - rect.top, rect.height);
+                app.drawingStroke.push({ x, y });
+                renderProjection();
+                // Draw live stroke preview
+                const ctx = app.canvas.ctx;
+                const lastPts = app.drawingStroke;
+                if (lastPts.length > 1) {
+                    ctx.save();
+                    ctx.strokeStyle = layer.color || '#ffeb3b';
+                    ctx.lineWidth = 4 * (app.canvas.dpr || 1);
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(pctToPx(lastPts[0].x, app.canvas.logicalWidth), pctToPx(lastPts[0].y, app.canvas.logicalHeight));
+                    for (let i = 1; i < lastPts.length; i++) {
+                        ctx.lineTo(pctToPx(lastPts[i].x, app.canvas.logicalWidth), pctToPx(lastPts[i].y, app.canvas.logicalHeight));
+                    }
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        }
+
+        function onCanvasPointerUp(e) {
+            if (app.drawingStroke) {
+                const layer = app.layers.find(l => l.id === app.selectedLayerId);
+                if (layer && app.drawingStroke.length > 1) {
+                    layer.strokes.push([...app.drawingStroke]);
+                    showHUD(`Stroke added (${app.drawingStroke.length} pts)`);
+                    scheduleAutosave();
+                }
+                app.drawingStroke = null;
+                app.addingPoints = false;
+                updateLayerList();
+                updateOverlay();
             }
         }
 
@@ -2090,15 +2188,22 @@
           const project = app.pendingProjectData;
 
           // Restore layers
-          app.layers = (project.layers || []).map(l => ({
-              id: l.id,
-              type: l.type,
-              name: l.name,
-              mediaId: null, // Clear old media ID
-              mediaName: l.mediaName, // Keep the filename reference
-              enabled: l.enabled !== false,
-              points: l.points || []
-          }));
+          app.layers = (project.layers || []).map(l => {
+              const base = {
+                  id: l.id,
+                  type: l.type,
+                  name: l.name,
+                  mediaId: null, // Clear old media ID
+                  mediaName: l.mediaName, // Keep the filename reference
+                  enabled: l.enabled !== false,
+                  points: l.points || []
+              };
+              if (l.type === 'marker') {
+                  base.strokes = l.strokes || [];
+                  base.color = l.color || '#ffeb3b';
+              }
+              return base;
+          });
 
           // Re-link media by matching filenames
           app.layers.forEach(layer => {
@@ -2237,6 +2342,11 @@
                 app.layerType = 'mask';
                 showHUD('Layer type: Mask');
             });
+
+            document.getElementById('markerTypeBtn').addEventListener('click', () => {
+                app.layerType = 'marker';
+                showHUD('Layer type: Marker');
+            });
             
             document.getElementById('saveBtn').addEventListener('click', saveProject);
             document.getElementById('loadBtn').addEventListener('click', () => {
@@ -2265,11 +2375,26 @@
                 pendingAutosaveSnapshot = null;
                 document.getElementById('autosaveModal').classList.remove('visible');
             });
+
+            document.getElementById('clearAllBtn').addEventListener('click', () => {
+                if (app.layers.length === 0) return;
+                app.layers = [];
+                app.selectedLayerId = null;
+                app.addingPoints = false;
+                revokeAllMediaURLs();
+                updateLayerList();
+                updateOverlay();
+                showHUD('All layers cleared');
+                scheduleAutosave();
+            });
             
             document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
             document.getElementById('toggleHandlesBtn').addEventListener('click', toggleHandles);
             
             app.canvas.element.addEventListener('click', onCanvasClick);
+            app.canvas.element.addEventListener('pointerdown', onCanvasPointerDown);
+            app.canvas.element.addEventListener('pointermove', onCanvasPointerMove);
+            app.canvas.element.addEventListener('pointerup', onCanvasPointerUp);
             document.addEventListener('mousemove', onMouseMove);
             document.addEventListener('mouseup', onMouseUp);
             
