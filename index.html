@@ -1455,6 +1455,9 @@
         function updatePhysics() {
             if (!app.physicsRunning) return;
 
+            // Precompute mask layers and their pixel points for efficiency
+            const maskLayers = app.layers.filter(l => l.enabled && l.type === 'mask');
+
             app.layers.forEach(layer => {
                 if (!layer.enabled || layer.type !== 'physics' || !layer.objects) return;
                 const w = app.canvas.logicalWidth;
@@ -1467,6 +1470,63 @@
                     obj.x += obj.vx;
                     obj.y += obj.vy;
 
+                    // ---- Mask collision ----
+                    for (const maskLayer of maskLayers) {
+                        const pts = maskLayer.points.map(p => ({
+                            x: p.x * w,
+                            y: p.y * h
+                        }));
+                        if (pts.length < 3) continue; // not a polygon
+
+                        // Check collision with each edge of the mask polygon
+                        for (let e = 0; e < pts.length; e++) {
+                            const a = pts[e];
+                            const b = pts[(e + 1) % pts.length];
+
+                            // Vector from a to b
+                            const abx = b.x - a.x;
+                            const aby = b.y - a.y;
+                            // Vector from a to object center
+                            const acx = obj.x - a.x;
+                            const acy = obj.y - a.y;
+
+                            // Projection of ac onto ab
+                            const abLenSq = abx * abx + aby * aby;
+                            if (abLenSq === 0) continue; // a and b are same point
+                            const t = Math.max(0, Math.min(1, (acx * abx + acy * aby) / abLenSq));
+
+                            // Closest point on segment
+                            const closestX = a.x + t * abx;
+                            const closestY = a.y + t * aby;
+
+                            // Distance from object center to closest point
+                            const dx = obj.x - closestX;
+                            const dy = obj.y - closestY;
+                            const distSq = dx * dx + dy * dy;
+
+                            if (distSq < obj.radius * obj.radius) {
+                                // Collision detected
+                                const dist = Math.sqrt(distSq);
+                                const nx = dx / dist;
+                                const ny = dy / dist;
+
+                                // Move object out of collision
+                                const overlap = obj.radius - dist;
+                                obj.x += nx * overlap;
+                                obj.y += ny * overlap;
+
+                                // Reflect velocity (elastic collision with immovable wall)
+                                const vn = obj.vx * nx + obj.vy * ny;
+                                if (vn > 0) { // only if moving towards the wall
+                                    const restitution = 0.8;
+                                    obj.vx -= (1 + restitution) * vn * nx;
+                                    obj.vy -= (1 + restitution) * vn * ny;
+                                }
+                            }
+                        }
+                    }
+                    // ---- End mask collision ----
+
                     // Boundary collision
                     if (obj.x - obj.radius < 0) { obj.x = obj.radius; obj.vx *= -0.8; }
                     if (obj.x + obj.radius > w) { obj.x = w - obj.radius; obj.vx *= -0.8; }
@@ -1474,7 +1534,7 @@
                     if (obj.y + obj.radius > h) { obj.y = h - obj.radius; obj.vy *= -0.8; }
                 });
 
-                // Circle-circle collision
+                // Circle-circle collision (unchanged)
                 for (let i = 0; i < layer.objects.length; i++) {
                     for (let j = i + 1; j < layer.objects.length; j++) {
                         const a = layer.objects[i];
