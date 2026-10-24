@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUERILLA_MASK</title>
+    <script src="https://unpkg.com/gifler@0.1.0/gifler.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 350px;
+            height: 100%;
+            background: #2a2a2a;
+            border-right: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar-section {
+            border-bottom: 1px solid #3a3a3a;
+            padding: 15px;
+        }
+
+        .sidebar-section h3 {
+            margin-bottom: 10px;
+            color: #4a9eff;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #layerList {
+          flex: 1; 
+          height: 100%;
+          min-height: 100%;
+          overflow-y: scroll; 
+          margin-top: 10px;
+          margin-bottom: 100px;
+        }
+
+        #dropZone {
+            border: 2px dashed #4a9eff;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #333;
+        }
+
+        #dropZone:hover, #dropZone.drag-over {
+            background: #3a3a3a;
+            border-color: #6ab7ff;
+        }
+
+        #mediaList, #layerList {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .media-item, .layer-item {
+            padding: 10px;
+            background: #333;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-item:hover, .layer-item:hover {
+            background: #3a3a3a;
+        }
+
+        .layer-item.selected {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .layer-item.disabled {
+            opacity: 0.5;
+        }
+
+        .layer-controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background: #6ab7ff;
+        }
+
+        button.small {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+
+        button.danger {
+            background: #ff4a4a;
+        }
+
+        button.danger:hover {
+            background: #ff6a6a;
+        }
+
+        button.orange {
+            background: #d97706;
+        }
+
+        button.orange:hover {
+            background: #f59e0b;
+        }
+
+        #canvasContainer {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #projectionCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #svgOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #svgOverlay.hidden {
+            display: none;
+        }
+
+        .handle {
+            cursor: move;
+            pointer-events: auto;
+        }
+
+        .handle circle {
+            fill: #4a9eff;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .handle:hover circle {
+            fill: #6ab7ff;
+        }
+
+        .handle.center-of-mass circle {
+            fill: #ff6b35;
+            stroke: white;
+            stroke-width: 2;
+        }
+
+        .handle.first circle {
+            fill: #ef4444;
+        }
+
+        .quad-outline, .mask-outline {
+            fill: none;
+            stroke: #4a9eff;
+            stroke-width: 2;
+            pointer-events: auto;
+            cursor: move;
+            transition: stroke 0.2s, stroke-width 0.2s;
+        }
+
+        .quad-outline.selected, .mask-outline.selected {
+            stroke: #fbbf24;
+            stroke-width: 4;
+        }
+
+        .mask-outline {
+            stroke: #d97706;
+        }
+
+        .mask-outline.selected {
+            stroke: #f59e0b;
+            stroke-width: 4;
+        }
+
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 200;
+        }
+
+        #hud.visible {
+            opacity: 1;
+        }
+
+        #fullscreenBtn, #toggleHandlesBtn {
+            transition: opacity 0.3s;
+        }
+
+        #fullscreenBtn.hidden, #toggleHandlesBtn.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+
+        .button-group {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .layer-type-selector {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .notice {
+            font-size: 11px;
+            padding: 8px;
+            background: #333;
+            border-radius: 4px;
+            margin-top: 10px;
+            color: #9ca3af;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4a9eff;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6ab7ff;
+        }
+
+        .layer-name {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .layer-info {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .z-index-controls {
+            display: flex;
+            gap: 2px;
+            margin-right: 5px;
+        }
+
+        #loadProjectModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #loadProjectModal.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #4a9eff;
+        }
+
+        .media-upload-item {
+            background: #333;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .media-upload-item.complete {
+            background: #1a4d2e;
+        }
+
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(74, 158, 255, 0.8);
+        }
+
+        #fullscreenBtn:hover {
+            background: rgba(106, 183, 255, 0.9);
+        }
+
+        #toggleHandlesBtn {
+            position: absolute;
+            top: 10px;
+            right: 120px;
+            z-index: 100;
+            background: rgba(74, 158, 255, 0.8);
+        }
+
+        #toggleHandlesBtn:hover {
+            background: rgba(106, 183, 255, 0.9);
+        }
+
+        
+
+        #sidebarResizer {
+            position: absolute;
+            right: -2px; /* Changed from 0 */
+            top: 0;
+            bottom: 0;
+            width: 8px; /* Wider for easier grabbing */
+            background: transparent;
+            cursor: ew-resize;
+            z-index: 1000;
+        }
+
+        #sidebarResizer:hover {
+            background: rgba(74, 158, 255, 0.3);
+        }
+
+        #sidebarResizer.dragging {
+            background: rgba(74, 158, 255, 0.5);
+        }
+
+
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="sidebar">
+          <div id="sidebarResizer"></div>
+
+          <div class="sidebar-section">
+                <h3>Project</h3>
+                <div class="button-group">
+                    <button id="saveBtn">💾 Save</button>
+                    <button id="loadBtn">📂 Load</button>
+                </div>
+                <input type="file" id="projectInput" accept=".json" style="display: none;">
+            </div>
+            <div class="sidebar-section">
+                <h3>Media Library</h3>
+                <div id="dropZone">
+                    <p>📁 Drop files here or click to browse</p>
+                    <p style="font-size: 11px; margin-top: 5px; opacity: 0.7;">Images, Videos, GIFs</p>
+                </div>
+                <input type="file" id="fileInput" accept="image/*,video/*" multiple style="display: none;">
+                <div id="mediaList"></div>
+            </div>
+
+            <div class="sidebar-section" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                <h3>Layer Type</h3>
+                <div class="layer-type-selector">
+                    <button id="projectionTypeBtn" class="small">Projection</button>
+                    <button id="maskTypeBtn" class="small orange">Mask</button>
+                </div>
+                <button id="addLayerBtn">+ Add Layer</button>
+                <button id="completeMaskBtn" class="small orange" style="margin-top: 5px;">Complete Mask</button>
+                <div class="notice">
+                    <strong>Projection:</strong> Click 4 points clockwise<br>
+                    <strong>Mask:</strong> Click 3+ points, then Complete Mask<br>
+                    <strong>H key:</strong> Toggle handles visibility
+                </div>
+                <h3 style="margin-top: 15px;">Layers</h3>
+                <div id="layerList"></div>
+            </div>
+        </div>
+
+        <div id="canvasContainer">
+            <button id="toggleHandlesBtn" class="small">👁 Handles</button>
+            <button id="fullscreenBtn" class="small">⛶ Fullscreen</button>
+            <canvas id="projectionCanvas"></canvas>
+            <svg id="svgOverlay"></svg>
+            <div id="hud"></div>
+        </div>
+    </div>
+
+    <!-- Modal for loading projects -->
+    <div id="loadProjectModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <strong>Load Project Media Files</strong>
+            </div>
+            <div id="mediaUploadList"></div>
+            <div class="button-group" style="margin-top: 15px;">
+                <button id="confirmLoadBtn">Continue</button>
+                <button id="cancelLoadBtn" class="small danger">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== Global App State =====
+        const app = {
+            mediaLibrary: [],
+            layers: [],
+            selectedLayerId: null,
+            layerType: 'projection',
+            canvas: { ctx: null, element: null, logicalWidth: 0, logicalHeight: 0 },
+            dragging: { active: false, pointIndex: -1, layerId: null, type: null, offset: { x: 0, y: 0 } },
+            mode: "idle",
+            addingPoints: false,
+            pendingProjectData: null,
+            handlesVisible: true
+        };
+
+        // ===== Sidebar Resize =====
+        const sidebarResize = {
+            active: false,
+            startX: 0,
+            startWidth: 0
+        };
+
+        // ===== Sidebar Resize =====
+        function initSidebarResize() {
+            const sidebar = document.getElementById('sidebar');
+            const resizer = document.getElementById('sidebarResizer');
+            const minWidth = 250;
+            const maxWidth = 800;
+            
+            let isResizing = false;
+            
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                resizer.classList.add('dragging');
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                const newWidth = Math.max(minWidth, Math.min(maxWidth, e.clientX));
+                sidebar.style.width = newWidth + 'px';
+                resize(); // Trigger canvas resize
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizer.classList.remove('dragging');
+                    document.body.style.userSelect = '';
+                }
+            });
+        }
+
+
+        const SUBDIV = 10;
+
+        // ===== Utility Functions =====
+        function uuid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function showHUD(message) {
+            const hud = document.getElementById('hud');
+            hud.textContent = message;
+            hud.classList.add('visible');
+            setTimeout(() => hud.classList.remove('visible'), 2000);
+        }
+
+        function pctToPx(p, size) {
+            return (p / 100) * size;
+        }
+
+        function pxToPct(px, size) {
+            return Math.max(0, Math.min(100, (px / size) * 100));
+        }
+
+        function toggleHandles() {
+            app.handlesVisible = !app.handlesVisible;
+            const svg = document.getElementById('svgOverlay');
+            if (app.handlesVisible) {
+                svg.classList.remove('hidden');
+            } else {
+                svg.classList.add('hidden');
+            }
+            showHUD(app.handlesVisible ? 'Handles visible' : 'Handles hidden');
+        }
+
+        // ===== Auto-assign media based on filename matching =====
+        function autoAssignMedia() {
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && !layer.mediaId) {
+                  // Extract number from layer name
+                  const layerMatch = layer.name.match(/\d+/);
+                  const layerNum = layerMatch ? layerMatch[0] : null;
+                  
+                  // Find media with matching number
+                  const media = app.mediaLibrary.find(m => {
+                      if (!layerNum) return false;
+                      
+                      // Extract number from media filename
+                      const mediaMatch = m.name.match(/\d+/);
+                      if (!mediaMatch) return false;
+                      
+                      return mediaMatch[0] === layerNum;
+                  });
+                  
+                  if (media) {
+                      layer.mediaId = media.id;
+                      layer.mediaName = media.name;
+                      console.log(`✓ Auto-assigned "${media.name}" to "${layer.name}"`);
+                  } else {
+                      console.log(`✗ No media found for "${layer.name}"`);
+                  }
+              }
+          });
+          updateLayerList();
+      }
+
+      // ===== Link media to layers that are waiting for it =====
+      function linkMediaToLayers() {
+          let linkedCount = 0;
+          
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && !layer.mediaId && layer.mediaName) {
+                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  if (media) {
+                      layer.mediaId = media.id;
+                      linkedCount++;
+                      console.log(`✓ Linked "${media.name}" to "${layer.name}"`);
+                  }
+              }
+          });
+          
+          if (linkedCount > 0) {
+              updateLayerList();
+              updateOverlay();
+              showHUD(`${linkedCount} layer${linkedCount > 1 ? 's' : ''} linked to media`);
+          }
+      }
+
+
+        // ===== Canvas Setup =====
+        function setupCanvas() {
+            const container = document.getElementById('canvasContainer');
+            const canvas = document.getElementById('projectionCanvas');
+            app.canvas.element = canvas;
+            app.canvas.ctx = canvas.getContext('2d', { alpha: false });
+
+            function resize() {
+                const rect = container.getBoundingClientRect();
+                
+                // Store logical dimensions
+                app.canvas.logicalWidth = rect.width;
+                app.canvas.logicalHeight = rect.height;
+                
+                // Set canvas resolution to match display size
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                
+                // CSS size matches container
+                canvas.style.width = rect.width + 'px';
+                canvas.style.height = rect.height + 'px';
+                
+                // Update SVG viewBox to match logical size
+                const svg = document.getElementById('svgOverlay');
+                svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+                
+                // Update overlay handles after resize
+                updateOverlay();
+            }
+
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // Handle fullscreen changes
+            document.addEventListener('fullscreenchange', resize);
+            document.addEventListener('webkitfullscreenchange', resize);
+            document.addEventListener('mozfullscreenchange', resize);
+            document.addEventListener('MSFullscreenChange', resize);
+        }
+
+        // ===== Media Loading =====
+        function loadMediaFile(file, expectedFilename = null) {
+            const id = uuid();
+            const isGif = file.type === 'image/gif';
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/') && !isGif;
+
+            if (isGif) {
+                const url = URL.createObjectURL(file);
+                const gifCanvas = document.createElement('canvas');
+                gifCanvas.width = 2;
+                gifCanvas.height = 2;
+
+                gifler(url).get(animator => {
+                    animator.animateInCanvas(gifCanvas);
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'gif',
+                        kind: 'gif',
+                        element: gifCanvas,
+                        width: gifCanvas.width,
+                        height: gifCanvas.height,
+                        url: url,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                });
+            } else if (isVideo) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.autoplay = true;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'video',
+                        kind: 'video',
+                        element: video,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                });
+                
+                video.play().catch(e => console.warn('Video autoplay failed:', e));
+            } else if (isImage) {
+                const img = new Image();
+                img.onload = () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'image',
+                        kind: 'image',
+                        element: img,
+                        width: img.width,
+                        height: img.height,
+                        filename: expectedFilename || file.name
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    linkMediaToLayers(); // ADD THIS LINE
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        }
+
+        function updateMediaList() {
+            const list = document.getElementById('mediaList');
+            list.innerHTML = '';
+            app.mediaLibrary.forEach(media => {
+                const item = document.createElement('div');
+                item.className = 'media-item';
+                item.textContent = `${media.name} (${media.type})`;
+                list.appendChild(item);
+            });
+        }
+
+        function assignMediaToLayer(layerId) {
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.type !== 'projection') return;
+            
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*,video/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    loadMediaFile(file);
+                    // Wait a moment for media to load, then assign
+                    setTimeout(() => {
+                        const media = app.mediaLibrary[app.mediaLibrary.length - 1];
+                        if (media) {
+                            layer.mediaId = media.id;
+                            layer.mediaName = media.name;
+                            updateLayerList();
+                            showHUD('Media assigned to layer');
+                        }
+                    }, 100);
+                }
+            };
+            input.click();
+        }
+
+        // ===== Layer Management =====
+        function createLayer() {
+            const layer = {
+                id: uuid(),
+                type: app.layerType,
+                name: `${app.layerType === 'projection' ? 'Projection' : 'Mask'} ${app.layers.length + 1}`,
+                mediaId: null,
+                mediaName: null,
+                enabled: true,
+                points: []
+            };
+            
+            app.layers.push(layer);
+            app.selectedLayerId = layer.id;
+            app.addingPoints = true;
+            updateLayerList();
+            updateOverlay();
+            showHUD(`Adding points to ${layer.name}. Click to place.`);
+        }
+
+        function completeMask() {
+            const layer = app.layers.find(l => l.id === app.selectedLayerId);
+            if (layer && layer.type === 'mask' && layer.points.length >= 3) {
+                app.addingPoints = false;
+                showHUD('Mask completed');
+            }
+        }
+
+        function duplicateLayer(layerId) {
+            const original = app.layers.find(l => l.id === layerId);
+            if (!original) return;
+            
+            const duplicate = {
+                ...original,
+                id: uuid(),
+                name: original.name + ' Copy',
+                points: original.points.map(p => ({ ...p }))
+            };
+            
+            app.layers.push(duplicate);
+            app.selectedLayerId = duplicate.id;
+            updateLayerList();
+            updateOverlay();
+            showHUD(`Duplicated layer`);
+        }
+
+        function deleteLayer(layerId) {
+            app.layers = app.layers.filter(l => l.id !== layerId);
+            if (app.selectedLayerId === layerId) {
+                app.selectedLayerId = app.layers.length > 0 ? app.layers[0].id : null;
+            }
+            app.addingPoints = false;
+            updateLayerList();
+            updateOverlay();
+        }
+
+        function toggleLayerEnabled(layerId) {
+            const layer = app.layers.find(l => l.id === layerId);
+            if (layer) {
+                layer.enabled = !layer.enabled;
+                updateLayerList();
+            }
+        }
+
+        function selectLayer(layerId) {
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+            updateOverlay();
+        }
+
+        function moveLayerUp(layerId) {
+            const index = app.layers.findIndex(l => l.id === layerId);
+            if (index > 0) {
+                [app.layers[index], app.layers[index - 1]] = [app.layers[index - 1], app.layers[index]];
+                updateLayerList();
+                updateOverlay();
+                showHUD('Layer moved up');
+            }
+        }
+
+        function moveLayerDown(layerId) {
+            const index = app.layers.findIndex(l => l.id === layerId);
+            if (index < app.layers.length - 1) {
+                [app.layers[index], app.layers[index + 1]] = [app.layers[index + 1], app.layers[index]];
+                updateLayerList();
+                updateOverlay();
+                showHUD('Layer moved down');
+            }
+        }
+
+        function updateLayerList() {
+            const list = document.getElementById('layerList');
+            list.innerHTML = '';
+            
+            // Render layers in reverse order (top to bottom = high to low z-index)
+            [...app.layers].reverse().forEach(layer => {
+                const item = document.createElement('div');
+                item.className = 'layer-item' + 
+                    (layer.id === app.selectedLayerId ? ' selected' : '') +
+                    (!layer.enabled ? ' disabled' : '');
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'layer-name';
+                nameDiv.innerHTML = `
+                    <div>${layer.name}</div>
+                    ${layer.mediaName ? `<div class="layer-info">📎 ${layer.mediaName}</div>` : ''}
+                `;
+                nameDiv.onclick = () => selectLayer(layer.id);
+                
+                const controls = document.createElement('div');
+                controls.className = 'layer-controls';
+                
+                // Z-index controls
+                const zControls = document.createElement('div');
+                zControls.className = 'z-index-controls';
+                
+                const upBtn = document.createElement('button');
+                upBtn.className = 'small';
+                upBtn.textContent = '↓';
+                upBtn.title = 'Move down';
+                upBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    moveLayerUp(layer.id);
+                };
+                
+                const downBtn = document.createElement('button');
+                downBtn.className = 'small';
+                downBtn.textContent = '↑';
+                downBtn.title = 'Move up';
+                downBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    moveLayerDown(layer.id);
+                };
+                
+                zControls.appendChild(upBtn);
+                zControls.appendChild(downBtn);
+                
+                // Assign media button (only for projection layers)
+                if (layer.type === 'projection') {
+                    const assignBtn = document.createElement('button');
+                    assignBtn.className = 'small';
+                    assignBtn.textContent = '📎';
+                    assignBtn.title = 'Assign media';
+                    assignBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        assignMediaToLayer(layer.id);
+                    };
+                    controls.appendChild(assignBtn);
+                }
+                
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'small';
+                toggleBtn.textContent = layer.enabled ? '👁' : '🚫';
+                toggleBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleLayerEnabled(layer.id);
+                };
+                
+                const dupBtn = document.createElement('button');
+                dupBtn.className = 'small';
+                dupBtn.textContent = '📋';
+                dupBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    duplicateLayer(layer.id);
+                };
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = 'small danger';
+                delBtn.textContent = '🗑';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteLayer(layer.id);
+                };
+                
+                controls.appendChild(zControls);
+                controls.appendChild(toggleBtn);
+                controls.appendChild(dupBtn);
+                controls.appendChild(delBtn);
+                
+                item.appendChild(nameDiv);
+                item.appendChild(controls);
+                list.appendChild(item);
+            });
+        }
+
+        // ===== Projection Rendering =====
+        function renderProjection() {
+            const ctx = app.canvas.ctx;
+            const w = app.canvas.logicalWidth;
+            const h = app.canvas.logicalHeight;
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Render in order (first = bottom, last = top)
+            app.layers.forEach(layer => {
+                if (!layer.enabled) return;
+                
+                if (layer.type === 'projection' && layer.points.length === 4) {
+                    const media = app.mediaLibrary.find(m => m.id === layer.mediaId);
+                    if (!media || !media.element) return;
+                    
+                    const pts = layer.points.map(p => ({
+                        x: pctToPx(p.x, w),
+                        y: pctToPx(p.y, h)
+                    }));
+                    
+                    renderQuad(ctx, media.element, pts);
+                } else if (layer.type === 'mask' && layer.points.length >= 3) {
+                    const pts = layer.points.map(p => ({
+                        x: pctToPx(p.x, w),
+                        y: pctToPx(p.y, h)
+                    }));
+                    
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) {
+                        ctx.lineTo(pts[i].x, pts[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+        }
+
+        function renderQuad(ctx, source, dstPoints) {
+          if (!source) return;
+          
+          const [p0, p1, p2, p3] = dstPoints; // topLeft, topRight, botRight, botLeft
+          const subdivisions = 8; // Grid subdivisions
+          
+          const sw = source.videoWidth || source.width;
+          const sh = source.videoHeight || source.height;
+          
+          // Draw as a grid of quads (each split into 2 triangles)
+          for (let row = 0; row < subdivisions; row++) {
+              for (let col = 0; col < subdivisions; col++) {
+                  const u0 = col / subdivisions;
+                  const u1 = (col + 1) / subdivisions;
+                  const v0 = row / subdivisions;
+                  const v1 = (row + 1) / subdivisions;
+                  
+                  // Interpolate corners of this grid cell
+                  const tl = bilinearInterp(p0, p1, p2, p3, u0, v0);
+                  const tr = bilinearInterp(p0, p1, p2, p3, u1, v0);
+                  const br = bilinearInterp(p0, p1, p2, p3, u1, v1);
+                  const bl = bilinearInterp(p0, p1, p2, p3, u0, v1);
+                  
+                  // Source coordinates for this grid cell
+                  const sx0 = u0 * sw;
+                  const sx1 = u1 * sw;
+                  const sy0 = v0 * sh;
+                  const sy1 = v1 * sh;
+                  
+                  // Draw cell as two triangles
+                  drawTriangle(ctx, source,
+                      sx0, sy0, sx1, sy0, sx0, sy1,
+                      tl.x, tl.y, tr.x, tr.y, bl.x, bl.y
+                  );
+                  
+                  drawTriangle(ctx, source,
+                      sx1, sy0, sx1, sy1, sx0, sy1,
+                      tr.x, tr.y, br.x, br.y, bl.x, bl.y
+                  );
+              }
+          }
+      }
+
+      function bilinearInterp(p0, p1, p2, p3, u, v) {
+          const top = { x: p0.x + (p1.x - p0.x) * u, y: p0.y + (p1.y - p0.y) * u };
+          const bot = { x: p3.x + (p2.x - p3.x) * u, y: p3.y + (p2.y - p3.y) * u };
+          return { x: top.x + (bot.x - top.x) * v, y: top.y + (bot.y - top.y) * v };
+      }
+
+
+
+      function drawTriangle(ctx, img, sx0, sy0, sx1, sy1, sx2, sy2, dx0, dy0, dx1, dy1, dx2, dy2) {
+        ctx.save();
+
+        // Expand destination clipping region by 1px
+        const cx = (dx0 + dx1 + dx2) / 3;
+        const cy = (dy0 + dy1 + dy2) / 3;
+        const expandAmount = 1.02; // 1% expansion to help mitigate lines from drawing triangles. 
+        
+        const edx0 = cx + (dx0 - cx) * expandAmount;
+        const edy0 = cy + (dy0 - cy) * expandAmount;
+        const edx1 = cx + (dx1 - cx) * expandAmount;
+        const edy1 = cy + (dy1 - cy) * expandAmount;
+        const edx2 = cx + (dx2 - cx) * expandAmount;
+        const edy2 = cy + (dy2 - cy) * expandAmount;
+
+        // Set clipping region to expanded destination triangle
+        ctx.beginPath();
+        ctx.moveTo(edx0, edy0);
+        ctx.lineTo(edx1, edy1);
+        ctx.lineTo(edx2, edy2);
+        ctx.closePath();
+        ctx.clip();
+
+        // Calculate transformation matrix from source to EXPANDED destination triangle
+        const x1 = sx0, y1 = sy0;
+        const x2 = sx1, y2 = sy1;
+        const x3 = sx2, y3 = sy2;
+
+        const u1 = edx0, v1 = edy0;
+        const u2 = edx1, v2 = edy1;
+        const u3 = edx2, v3 = edy2;
+
+        // Solve for affine transform coefficients
+        const delta = (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+
+        if (Math.abs(delta) < 0.0001) {
+            ctx.restore();
+            return; // Degenerate triangle
+        }
+
+        const deltaA = (u1 - u3) * (y2 - y3) - (u2 - u3) * (y1 - y3);
+        const deltaB = (x1 - x3) * (u2 - u3) - (x2 - x3) * (u1 - u3);
+        const deltaC = (v1 - v3) * (y2 - y3) - (v2 - v3) * (y1 - y3);
+        const deltaD = (x1 - x3) * (v2 - v3) - (x2 - x3) * (v1 - v3);
+
+        const a = deltaA / delta;
+        const b = deltaB / delta;
+        const c = deltaC / delta;
+        const d = deltaD / delta;
+        const e = u3 - a * x3 - b * y3;
+        const f = v3 - c * x3 - d * y3;
+
+        // Apply the transform and draw
+        ctx.transform(a, c, b, d, e, f);
+        ctx.drawImage(img, 0, 0);
+
+        ctx.restore();
+    }
+
+
+
+
+
+
+        function lerpQuad(tl, tr, br, bl, u, v) {
+            const top = lerp2D(tl, tr, u);
+            const bot = lerp2D(bl, br, u);
+            return lerp2D(top, bot, v);
+        }
+
+        function lerp2D(a, b, t) {
+            return {
+                x: a.x + (b.x - a.x) * t,
+                y: a.y + (b.y - a.y) * t
+            };
+        }
+
+        function computeTriangleTransform(src, dst) {
+            const [s0, s1, s2] = src;
+            const [d0, d1, d2] = dst;
+            
+            const srcMat = [
+                s0.x, s1.x, s2.x,
+                s0.y, s1.y, s2.y,
+                1, 1, 1
+            ];
+            
+            const det = srcMat[0] * (srcMat[4] * srcMat[8] - srcMat[5] * srcMat[7]) -
+                        srcMat[1] * (srcMat[3] * srcMat[8] - srcMat[5] * srcMat[6]) +
+                        srcMat[2] * (srcMat[3] * srcMat[7] - srcMat[4] * srcMat[6]);
+            
+            if (Math.abs(det) < 1e-10) {
+                return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            }
+            
+            const inv = [
+                (srcMat[4] * srcMat[8] - srcMat[5] * srcMat[7]) / det,
+                (srcMat[2] * srcMat[7] - srcMat[1] * srcMat[8]) / det,
+                (srcMat[1] * srcMat[5] - srcMat[2] * srcMat[4]) / det,
+                (srcMat[5] * srcMat[6] - srcMat[3] * srcMat[8]) / det,
+                (srcMat[0] * srcMat[8] - srcMat[2] * srcMat[6]) / det,
+                (srcMat[2] * srcMat[3] - srcMat[0] * srcMat[5]) / det,
+                (srcMat[3] * srcMat[7] - srcMat[4] * srcMat[6]) / det,
+                (srcMat[1] * srcMat[6] - srcMat[0] * srcMat[7]) / det,
+                (srcMat[0] * srcMat[4] - srcMat[1] * srcMat[3]) / det
+            ];
+            
+            const a = inv[0] * d0.x + inv[1] * d1.x + inv[2] * d2.x;
+            const b = inv[3] * d0.x + inv[4] * d1.x + inv[5] * d2.x;
+            const c = inv[6] * d0.x + inv[7] * d1.x + inv[8] * d2.x;
+            
+            const d = inv[0] * d0.y + inv[1] * d1.y + inv[2] * d2.y;
+            const e = inv[3] * d0.y + inv[4] * d1.y + inv[5] * d2.y;
+            const f = inv[6] * d0.y + inv[7] * d1.y + inv[8] * d2.y;
+            
+            return { a, b: d, c: b, d: e, e: c, f };
+        }
+
+        // ===== SVG Overlay (Handles) =====
+        function updateOverlay() {
+            const svg = document.getElementById('svgOverlay');
+            svg.innerHTML = '';
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            
+            app.layers.forEach(layer => {
+                if (!layer.enabled || layer.points.length === 0) return;
+                
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                // Draw outline
+                const outline = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const pointsStr = layer.points.map(p => 
+                    `${pctToPx(p.x, rect.width)},${pctToPx(p.y, rect.height)}`
+                ).join(' ');
+                outline.setAttribute('points', pointsStr);
+                outline.setAttribute('class', layer.type === 'mask' ? 'mask-outline' : 'quad-outline');
+                
+                // Highlight selected layer
+                if (layer.id === app.selectedLayerId) {
+                    outline.classList.add('selected');
+                }
+                
+                outline.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectLayer(layer.id);
+                    startDragLayer(e, layer.id);
+                });
+                g.appendChild(outline);
+                
+                // Draw handles for each point
+                layer.points.forEach((point, idx) => {
+                    const handle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    handle.setAttribute('class', 'handle' + (idx === 0 ? ' first' : ''));
+                    
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', pctToPx(point.x, rect.width));
+                    circle.setAttribute('cy', pctToPx(point.y, rect.height));
+                    circle.setAttribute('r', 8);
+                    
+                    handle.appendChild(circle);
+                    handle.addEventListener('mousedown', (e) => startDragPoint(e, layer.id, idx));
+                    g.appendChild(handle);
+                });
+                
+                // Center of mass handle for both projection and mask layers (when they have 3+ points)
+                if ((layer.type === 'projection' && layer.points.length === 4) || 
+                    (layer.type === 'mask' && layer.points.length >= 3)) {
+                    const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+                    const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+                    
+                    const centerHandle = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    centerHandle.setAttribute('class', 'handle center-of-mass');
+                    
+                    const centerCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    centerCircle.setAttribute('cx', pctToPx(centerX, rect.width));
+                    centerCircle.setAttribute('cy', pctToPx(centerY, rect.height));
+                    centerCircle.setAttribute('r', 10);
+                    
+                    centerHandle.appendChild(centerCircle);
+                    centerHandle.addEventListener('mousedown', (e) => startDragCenter(e, layer.id));
+                    g.appendChild(centerHandle);
+                }
+                
+                svg.appendChild(g);
+            });
+        }
+
+        // ===== Canvas Click Handler =====
+        function onCanvasClick(e) {
+            if (app.dragging.active) return;
+            if (!app.addingPoints) return;
+
+            const layer = app.layers.find(l => l.id === app.selectedLayerId);
+            if (!layer) return;
+
+            const rect = app.canvas.element.getBoundingClientRect();
+            const x = pxToPct(e.clientX - rect.left, rect.width);
+            const y = pxToPct(e.clientY - rect.top, rect.height);
+
+            if (layer.type === 'projection' && layer.points.length < 4) {
+                layer.points.push({ x, y });
+                if (layer.points.length === 4) {
+                    app.addingPoints = false;
+                    autoAssignMedia(); // Try to auto-assign media when quad is complete
+                    showHUD('Projection quad complete');
+                }
+                updateOverlay();
+                updateLayerList();
+            } else if (layer.type === 'mask') {
+                layer.points.push({ x, y });
+                updateOverlay();
+                updateLayerList();
+                showHUD(`Mask point ${layer.points.length} added`);
+            }
+        }
+
+        // ===== Dragging Logic =====
+        function startDragPoint(e, layerId, pointIndex) {
+            e.stopPropagation();
+            e.preventDefault();
+            app.dragging = {
+                active: true,
+                type: 'point',
+                layerId: layerId,
+                pointIndex: pointIndex
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function startDragCenter(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer) return;
+            
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            app.dragging = {
+                active: true,
+                type: 'center',
+                layerId: layerId,
+                offset: { x: mouseX - centerX, y: mouseY - centerY }
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function startDragLayer(e, layerId) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            const layer = app.layers.find(l => l.id === layerId);
+            if (!layer || layer.points.length === 0) return;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+            const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            
+            app.dragging = {
+                active: true,
+                type: 'layer',
+                layerId: layerId,
+                offset: { x: mouseX - centerX, y: mouseY - centerY }
+            };
+            app.selectedLayerId = layerId;
+            app.addingPoints = false;
+            updateLayerList();
+        }
+
+        function onMouseMove(e) {
+            if (!app.dragging.active) return;
+            
+            const rect = app.canvas.element.getBoundingClientRect();
+            const mouseX = pxToPct(e.clientX - rect.left, rect.width);
+            const mouseY = pxToPct(e.clientY - rect.top, rect.height);
+            
+            const layer = app.layers.find(l => l.id === app.dragging.layerId);
+            if (!layer) return;
+            
+            if (app.dragging.type === 'point') {
+                layer.points[app.dragging.pointIndex] = { x: mouseX, y: mouseY };
+            } else if (app.dragging.type === 'center' || app.dragging.type === 'layer') {
+                const oldCenterX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
+                const oldCenterY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+                
+                const newCenterX = mouseX - app.dragging.offset.x;
+                const newCenterY = mouseY - app.dragging.offset.y;
+                
+                const dx = newCenterX - oldCenterX;
+                const dy = newCenterY - oldCenterY;
+                
+                layer.points.forEach(p => {
+                    p.x += dx;
+                    p.y += dy;
+                });
+            }
+            
+            updateOverlay();
+        }
+
+        function onMouseUp() {
+            app.dragging.active = false;
+        }
+
+        // ===== Save/Load System =====
+        function saveProject() {
+            const project = {
+                version: "1.4.0",
+                savedAt: new Date().toISOString(),
+                media: app.mediaLibrary.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    filename: m.filename || m.name,
+                    type: m.type,
+                    kind: m.kind
+                })),
+                layers: app.layers.map(l => ({
+                    id: l.id,
+                    type: l.type,
+                    name: l.name,
+                    mediaId: l.mediaId,
+                    mediaName: l.mediaName,
+                    enabled: l.enabled,
+                    points: l.points,
+                    playing: true
+                }))
+            };
+            
+            const json = JSON.stringify(project, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `projection-map-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showHUD('Project saved');
+        }
+
+        async function loadProject(file) {
+            try {
+                const text = await file.text();
+                const project = JSON.parse(text);
+                
+                app.pendingProjectData = project;
+                
+                // Show modal for media file upload
+                const modal = document.getElementById('loadProjectModal');
+                const mediaList = document.getElementById('mediaUploadList');
+                mediaList.innerHTML = '';
+                
+                (project.media || []).forEach(mediaInfo => {
+                    const item = document.createElement('div');
+                    item.className = 'media-upload-item';
+                    item.innerHTML = `
+                        <span>${mediaInfo.filename || mediaInfo.name}</span>
+                        <button class="small" onclick="selectMediaForLoad('${mediaInfo.id}', '${mediaInfo.kind}', '${mediaInfo.filename || mediaInfo.name}')">Select File</button>
+                    `;
+                    item.dataset.mediaId = mediaInfo.id;
+                    item.dataset.filename = mediaInfo.filename || mediaInfo.name;
+                    mediaList.appendChild(item);
+                });
+                
+                modal.classList.add('visible');
+            } catch (err) {
+                console.error('Error loading project:', err);
+                showHUD('Error loading project');
+            }
+        }
+
+        window.selectMediaForLoad = function(mediaId, kind, expectedFilename) {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = kind === 'video' ? 'video/*' : 'image/*';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    loadMediaFileWithId(file, mediaId, expectedFilename);
+                    
+                    // Mark as complete
+                    const item = document.querySelector(`[data-media-id="${mediaId}"]`);
+                    if (item) {
+                        item.classList.add('complete');
+                        item.querySelector('button').textContent = '✓';
+                    }
+                }
+            };
+            
+            input.click();
+        };
+
+        function loadMediaFileWithId(file, id, expectedFilename) {
+            const isGif = file.type === 'image/gif';
+            const isVideo = file.type.startsWith('video/');
+
+            if (isGif) {
+                const url = URL.createObjectURL(file);
+                const gifCanvas = document.createElement('canvas');
+                gifCanvas.width = 2;
+                gifCanvas.height = 2;
+
+                gifler(url).get(animator => {
+                    animator.animateInCanvas(gifCanvas);
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'gif',
+                        kind: 'gif',
+                        element: gifCanvas,
+                        width: gifCanvas.width,
+                        height: gifCanvas.height,
+                        url: url,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                });
+            } else if (isVideo) {
+                const video = document.createElement('video');
+                video.src = URL.createObjectURL(file);
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.autoplay = true;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'video',
+                        kind: 'video',
+                        element: video,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                    video.play().catch(e => {});
+                });
+            } else {
+                const img = new Image();
+                img.onload = () => {
+                    const media = {
+                        id: id,
+                        name: file.name,
+                        type: 'image',
+                        kind: 'image',
+                        element: img,
+                        width: img.width,
+                        height: img.height,
+                        filename: expectedFilename
+                    };
+                    app.mediaLibrary.push(media);
+                    updateMediaList();
+                };
+                img.src = URL.createObjectURL(file);
+            }
+        }
+
+        function confirmLoadProject() {
+          if (!app.pendingProjectData) return;
+          
+          const project = app.pendingProjectData;
+          
+          // Restore layers
+          app.layers = (project.layers || []).map(l => ({
+              id: l.id,
+              type: l.type,
+              name: l.name,
+              mediaId: null, // Clear old media ID
+              mediaName: l.mediaName, // Keep the filename reference
+              enabled: l.enabled !== false,
+              points: l.points || []
+          }));
+          
+          // Re-link media by matching filenames
+          app.layers.forEach(layer => {
+              if (layer.type === 'projection' && layer.mediaName) {
+                  const media = app.mediaLibrary.find(m => m.name === layer.mediaName);
+                  if (media) {
+                      layer.mediaId = media.id;
+                      console.log(`✓ Linked "${media.name}" to "${layer.name}"`);
+                  } else {
+                      console.log(`✗ Media not found: "${layer.mediaName}"`);
+                  }
+              }
+          });
+          
+          if (app.layers.length > 0) {
+              app.selectedLayerId = app.layers[0].id;
+          }
+          
+          updateLayerList();
+          updateOverlay();
+          
+          document.getElementById('loadProjectModal').classList.remove('visible');
+          app.pendingProjectData = null;
+          showHUD('Project loaded - media linked');
+      }
+
+
+        function cancelLoadProject() {
+            app.mediaLibrary = [];
+            app.pendingProjectData = null;
+            document.getElementById('loadProjectModal').classList.remove('visible');
+            updateMediaList();
+        }
+
+        // ===== Fullscreen =====
+        function toggleFullscreen() {
+            const container = document.getElementById('canvasContainer');
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.log('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+
+        // ===== Animation Loop =====
+        function animate() {
+            requestAnimationFrame(animate);
+            renderProjection();
+        }
+        // ===== Auto-hide buttons in fullscreen =====
+        let mouseIdleTimeout = null;
+        let lastMouseMove = Date.now();
+
+        function handleMouseActivity() {
+            lastMouseMove = Date.now();
+            
+            if (document.fullscreenElement) {
+                const fullscreenBtn = document.getElementById('fullscreenBtn');
+                const toggleHandlesBtn = document.getElementById('toggleHandlesBtn');
+                
+                fullscreenBtn.classList.remove('hidden');
+                toggleHandlesBtn.classList.remove('hidden');
+                
+                clearTimeout(mouseIdleTimeout);
+                mouseIdleTimeout = setTimeout(() => {
+                    if (document.fullscreenElement) {
+                        fullscreenBtn.classList.add('hidden');
+                        toggleHandlesBtn.classList.add('hidden');
+                    }
+                }, 3000); // Hide after 3 seconds of inactivity
+            }
+        }
+
+        function checkFullscreenState() {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const toggleHandlesBtn = document.getElementById('toggleHandlesBtn');
+            
+            if (!document.fullscreenElement) {
+                // Not in fullscreen - show buttons
+                fullscreenBtn.classList.remove('hidden');
+                toggleHandlesBtn.classList.remove('hidden');
+                clearTimeout(mouseIdleTimeout);
+            } else {
+                // Entered fullscreen - start the hide timer
+                handleMouseActivity();
+            }
+        }
+
+        document.addEventListener('mousemove', handleMouseActivity);
+        document.addEventListener('fullscreenchange', checkFullscreenState);
+
+
+        // ===== Event Listeners =====
+        function setupEventListeners() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const files = Array.from(e.dataTransfer.files);
+                files.forEach(loadMediaFile);
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                files.forEach(loadMediaFile);
+                fileInput.value = '';
+            });
+            
+            document.getElementById('addLayerBtn').addEventListener('click', createLayer);
+            document.getElementById('completeMaskBtn').addEventListener('click', completeMask);
+            
+            document.getElementById('projectionTypeBtn').addEventListener('click', () => {
+                app.layerType = 'projection';
+                showHUD('Layer type: Projection');
+            });
+            
+            document.getElementById('maskTypeBtn').addEventListener('click', () => {
+                app.layerType = 'mask';
+                showHUD('Layer type: Mask');
+            });
+            
+            document.getElementById('saveBtn').addEventListener('click', saveProject);
+            document.getElementById('loadBtn').addEventListener('click', () => {
+                document.getElementById('projectInput').click();
+            });
+            
+            document.getElementById('projectInput').addEventListener('change', (e) => {
+                if (e.target.files[0]) {
+                    loadProject(e.target.files[0]);
+                    e.target.value = '';
+                }
+            });
+            
+            document.getElementById('confirmLoadBtn').addEventListener('click', confirmLoadProject);
+            document.getElementById('cancelLoadBtn').addEventListener('click', cancelLoadProject);
+            
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+            document.getElementById('toggleHandlesBtn').addEventListener('click', toggleHandles);
+            
+            app.canvas.element.addEventListener('click', onCanvasClick);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Delete' && app.selectedLayerId) {
+                    deleteLayer(app.selectedLayerId);
+                } else if (e.key === 'Escape') {
+                    app.addingPoints = false;
+                    showHUD('Cancelled point placement');
+                } else if (e.key === 'f' || e.key === 'F') {
+                    toggleFullscreen();
+                } else if (e.key === 'h' || e.key === 'H') {
+                    toggleHandles();
+                }
+            });
+        }
+
+        // ===== Initialize =====
+        function init() {
+            setupCanvas();
+            setupEventListeners();
+            initSidebarResize(); // ADD THIS LINE
+            animate();
+            showHUD('Ready - Add a layer to start');
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

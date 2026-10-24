@@ -1,0 +1,10 @@
+.web
+__pycache__/
+*.db
+.states
+assets/external/
+*.py[cod]
+trump_gifs
+archive/*.json
+tests/__pycache__/
+tests/screenshots/
