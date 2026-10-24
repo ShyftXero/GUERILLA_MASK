@@ -1,0 +1,8 @@
+# Sample media is large. Track binaries with Git LFS so clones on a phone tether stay small.
+# New clones: `git lfs install` once. Existing history is untouched.
+*.gif filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.webm filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.webp filter=lfs diff=lfs merge=lfs -text
+*.avif filter=lfs diff=lfs merge=lfs -text

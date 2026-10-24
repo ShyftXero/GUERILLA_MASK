@@ -1,0 +1,910 @@
+{
+ "version": "2.0.0",
+ "savedAt": "2026-10-23T17:09:14.545Z",
+ "media": [
+  {
+   "id": "8da5b9e6-27f2-4177-8cc6-08f4968a66ba",
+   "name": "Webcam",
+   "filename": "Webcam",
+   "type": "camera",
+   "kind": "camera",
+   "needsRelink": true
+  },
+  {
+   "id": "1105b5cf-824b-42af-9feb-f66730db2319",
+   "name": "Motion cut",
+   "filename": "Motion cut",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "motioncut",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 127,
+    "learn": 0.02,
+    "threshold": 0.16,
+    "soft": 0.08,
+    "hold": 0.95,
+    "ghost": 0,
+    "tint": 0,
+    "reset": 0
+   },
+   "sourceName": "Webcam",
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "773dcaff-e98d-4ebf-94eb-73d9b2d8d7d2",
+   "name": "Alien skin",
+   "filename": "Alien skin",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "reaction",
+   "params": {
+    "speed": 1.2,
+    "scale": 1,
+    "hue": 120,
+    "feed": 0.03,
+    "kill": 0.057,
+    "seed": 0.9,
+    "wiggle": 0.012,
+    "wfreq": 9,
+    "glow": 0.3,
+    "reset": 0
+   },
+   "sourceName": "Motion cut",
+   "mods": [
+    {
+     "signal": "motion",
+     "param": "feed",
+     "amount": 0.3
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "729ba5ff-07bb-49ea-95d5-5d3e9d524119",
+   "name": "Mirror tunnel",
+   "filename": "Mirror tunnel",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "feedback",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 200,
+    "decay": 0.955,
+    "zoom": 1.015,
+    "warp": 0.006,
+    "rot": 0.006,
+    "sym": 6,
+    "hueShift": 0.05,
+    "edge": 0.35
+   },
+   "sourceName": "Motion cut",
+   "mods": [
+    {
+     "signal": "motion",
+     "param": "zoom",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": true
+  },
+  {
+   "id": "8c616b06-326d-4a48-b296-0faaaee63b9c",
+   "name": "Neon ghost",
+   "filename": "Neon ghost",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "motioncut",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 300,
+    "learn": 0.01,
+    "threshold": 0.14,
+    "soft": 0.1,
+    "hold": 0.985,
+    "ghost": 0.08,
+    "tint": 0.7,
+    "reset": 0
+   },
+   "sourceName": "Webcam",
+   "mods": [
+    {
+     "signal": "beat",
+     "param": "hue",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "da7d5a14-ccca-4448-94b5-ee3aac7c0be1",
+   "name": "Face mandala",
+   "filename": "Face mandala",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "kaleido",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 0,
+    "decay": 0,
+    "zoom": 1.005,
+    "warp": 0.005,
+    "rot": 0.003,
+    "sym": 12,
+    "hueShift": 0.03,
+    "edge": 0
+   },
+   "sourceName": "Motion cut",
+   "mods": [],
+   "beatHue": false
+  }
+ ],
+ "layers": [
+  {
+   "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+   "type": "projection",
+   "name": "Wall",
+   "mediaId": "773dcaff-e98d-4ebf-94eb-73d9b2d8d7d2",
+   "mediaName": "Alien skin",
+   "enabled": true,
+   "points": [
+    {
+     "x": 2,
+     "y": 4
+    },
+    {
+     "x": 98,
+     "y": 4
+    },
+    {
+     "x": 98,
+     "y": 96
+    },
+    {
+     "x": 2,
+     "y": 96
+    }
+   ]
+  }
+ ],
+ "selectedLayerId": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+ "layerType": "projection",
+ "scenes": [
+  {
+   "id": "8faa4706-39fa-4d42-8496-c5020b971d56",
+   "name": "Alien skin",
+   "note": null,
+   "layers": [
+    {
+     "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+     "type": "projection",
+     "name": "Wall",
+     "mediaId": "773dcaff-e98d-4ebf-94eb-73d9b2d8d7d2",
+     "mediaName": "Alien skin",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 127,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Mirror tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.955,
+      "zoom": 1.015,
+      "warp": 0.006,
+      "rot": 0.006,
+      "sym": 6,
+      "hueShift": 0.05,
+      "edge": 0.35
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Neon ghost": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "learn": 0.01,
+      "threshold": 0.14,
+      "soft": 0.1,
+      "hold": 0.985,
+      "ghost": 0.08,
+      "tint": 0.7,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "beat",
+       "param": "hue",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Face mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.003,
+      "sym": 12,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    }
+   }
+  },
+  {
+   "id": "8ef9ba11-85e1-4f6e-95be-23090e11b02d",
+   "name": "Tunnel",
+   "note": null,
+   "layers": [
+    {
+     "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+     "type": "projection",
+     "name": "Wall",
+     "mediaId": "729ba5ff-07bb-49ea-95d5-5d3e9d524119",
+     "mediaName": "Mirror tunnel",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 127,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Mirror tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.955,
+      "zoom": 1.015,
+      "warp": 0.006,
+      "rot": 0.006,
+      "sym": 6,
+      "hueShift": 0.05,
+      "edge": 0.35
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Neon ghost": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "learn": 0.01,
+      "threshold": 0.14,
+      "soft": 0.1,
+      "hold": 0.985,
+      "ghost": 0.08,
+      "tint": 0.7,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "beat",
+       "param": "hue",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Face mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.003,
+      "sym": 12,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    }
+   }
+  },
+  {
+   "id": "2f03bd3e-95a5-40fe-b420-da6fd7604cbe",
+   "name": "Neon ghost",
+   "note": null,
+   "layers": [
+    {
+     "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+     "type": "projection",
+     "name": "Wall",
+     "mediaId": "8c616b06-326d-4a48-b296-0faaaee63b9c",
+     "mediaName": "Neon ghost",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 127,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Mirror tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.955,
+      "zoom": 1.015,
+      "warp": 0.006,
+      "rot": 0.006,
+      "sym": 6,
+      "hueShift": 0.05,
+      "edge": 0.35
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Neon ghost": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "learn": 0.01,
+      "threshold": 0.14,
+      "soft": 0.1,
+      "hold": 0.985,
+      "ghost": 0.08,
+      "tint": 0.7,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "beat",
+       "param": "hue",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Face mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.003,
+      "sym": 12,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    }
+   }
+  },
+  {
+   "id": "28e420a2-46ac-4a4e-8686-daba581a5994",
+   "name": "Mandala",
+   "note": null,
+   "layers": [
+    {
+     "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+     "type": "projection",
+     "name": "Wall",
+     "mediaId": "da7d5a14-ccca-4448-94b5-ee3aac7c0be1",
+     "mediaName": "Face mandala",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 127,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Mirror tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.955,
+      "zoom": 1.015,
+      "warp": 0.006,
+      "rot": 0.006,
+      "sym": 6,
+      "hueShift": 0.05,
+      "edge": 0.35
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Neon ghost": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "learn": 0.01,
+      "threshold": 0.14,
+      "soft": 0.1,
+      "hold": 0.985,
+      "ghost": 0.08,
+      "tint": 0.7,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "beat",
+       "param": "hue",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Face mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.003,
+      "sym": 12,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    }
+   }
+  },
+  {
+   "id": "9a2811b8-5c1b-41e0-9f97-0919382fb130",
+   "name": "Split",
+   "note": null,
+   "layers": [
+    {
+     "id": "26a07ad2-fc9d-4414-9cb8-a6d1226bf0fe",
+     "type": "projection",
+     "name": "Wall",
+     "mediaId": "773dcaff-e98d-4ebf-94eb-73d9b2d8d7d2",
+     "mediaName": "Alien skin",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 50,
+       "y": 4
+      },
+      {
+       "x": 50,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    },
+    {
+     "id": "37edfada-2c8f-4d3b-99cb-38dc202d92c6",
+     "type": "projection",
+     "name": "Wall right",
+     "mediaId": "729ba5ff-07bb-49ea-95d5-5d3e9d524119",
+     "mediaName": "Mirror tunnel",
+     "enabled": true,
+     "points": [
+      {
+       "x": 50,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 50,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 127,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Mirror tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.955,
+      "zoom": 1.015,
+      "warp": 0.006,
+      "rot": 0.006,
+      "sym": 6,
+      "hueShift": 0.05,
+      "edge": 0.35
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Neon ghost": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "learn": 0.01,
+      "threshold": 0.14,
+      "soft": 0.1,
+      "hold": 0.985,
+      "ghost": 0.08,
+      "tint": 0.7,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "beat",
+       "param": "hue",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Face mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.003,
+      "sym": 12,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    }
+   }
+  }
+ ],
+ "activeSceneId": "8faa4706-39fa-4d42-8496-c5020b971d56",
+ "midi": {
+  "ccMaps": []
+ },
+ "settings": {
+  "pcToScene": false,
+  "bumpKey": " ",
+  "quality": "med"
+ },
+ "title": "Mirror Tunnel"
+}

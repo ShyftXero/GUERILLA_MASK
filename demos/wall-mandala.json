@@ -1,0 +1,875 @@
+{
+ "version": "2.0.0",
+ "savedAt": "2026-10-23T17:09:01.606Z",
+ "media": [
+  {
+   "id": "14814ecd-0189-4354-abf6-4ed2263fd804",
+   "name": "Plasma core",
+   "filename": "Plasma core",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "plasma",
+   "params": {
+    "speed": 0.8,
+    "scale": 1.4,
+    "hue": 280
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "d080d923-5d4e-48ca-94e4-416f02e63d0e",
+   "name": "Mandala",
+   "filename": "Mandala",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "kaleido",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 300,
+    "decay": 0,
+    "zoom": 1,
+    "warp": 0.005,
+    "rot": 0.01,
+    "sym": 8,
+    "hueShift": 0.03,
+    "edge": 0
+   },
+   "sourceName": "Plasma core",
+   "mods": [
+    {
+     "signal": "bass",
+     "param": "sym",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "057c83bc-34fe-4a42-b742-a3bbe66d27ec",
+   "name": "Hex wing",
+   "filename": "Hex wing",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "hexagons",
+   "params": {
+    "speed": 1.2,
+    "scale": 1.6,
+    "hue": 190
+   },
+   "sourceName": null,
+   "mods": [
+    {
+     "signal": "mid",
+     "param": "speed",
+     "amount": 0.6
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "f02606f3-7776-4808-be84-5e473c42ee76",
+   "name": "Laser wing",
+   "filename": "Laser wing",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "lasers",
+   "params": {
+    "speed": 1,
+    "scale": 1.2,
+    "hue": 20
+   },
+   "sourceName": null,
+   "mods": [
+    {
+     "signal": "high",
+     "param": "scale",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": true
+  },
+  {
+   "id": "2d9df706-6d5c-4ac9-800c-ed9d39aee8cb",
+   "name": "Ripples",
+   "filename": "Ripples",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "circles",
+   "params": {
+    "speed": 0.9,
+    "scale": 1.1,
+    "hue": 120
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "e2ad6a23-8d83-4b0b-9430-6381a7cb13e4",
+   "name": "Coral",
+   "filename": "Coral",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "reaction",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 330,
+    "feed": 0.037,
+    "kill": 0.06,
+    "seed": 0.5,
+    "wiggle": 0.012,
+    "wfreq": 9,
+    "glow": 0.3,
+    "reset": 0
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  }
+ ],
+ "layers": [
+  {
+   "id": "4a32b90c-37e6-453b-929e-6969a970364b",
+   "type": "projection",
+   "name": "Left wing",
+   "mediaId": "057c83bc-34fe-4a42-b742-a3bbe66d27ec",
+   "mediaName": "Hex wing",
+   "enabled": true,
+   "points": [
+    {
+     "x": 3,
+     "y": 20
+    },
+    {
+     "x": 30,
+     "y": 15
+    },
+    {
+     "x": 30,
+     "y": 85
+    },
+    {
+     "x": 3,
+     "y": 80
+    }
+   ]
+  },
+  {
+   "id": "3e6aa287-ac29-478f-a8ee-3d3d7424be5e",
+   "type": "projection",
+   "name": "Center",
+   "mediaId": "d080d923-5d4e-48ca-94e4-416f02e63d0e",
+   "mediaName": "Mandala",
+   "enabled": true,
+   "points": [
+    {
+     "x": 31,
+     "y": 15
+    },
+    {
+     "x": 69,
+     "y": 15
+    },
+    {
+     "x": 69,
+     "y": 85
+    },
+    {
+     "x": 31,
+     "y": 85
+    }
+   ]
+  },
+  {
+   "id": "367d4d5b-282f-4801-b8ae-3050350470cf",
+   "type": "projection",
+   "name": "Right wing",
+   "mediaId": "f02606f3-7776-4808-be84-5e473c42ee76",
+   "mediaName": "Laser wing",
+   "enabled": true,
+   "points": [
+    {
+     "x": 70,
+     "y": 15
+    },
+    {
+     "x": 97,
+     "y": 20
+    },
+    {
+     "x": 97,
+     "y": 80
+    },
+    {
+     "x": 70,
+     "y": 85
+    }
+   ]
+  },
+  {
+   "id": "b6c1ae92-ea29-431b-8a6c-2b05df32aed7",
+   "type": "mask",
+   "name": "Doorway",
+   "mediaId": null,
+   "mediaName": null,
+   "enabled": true,
+   "points": [
+    {
+     "x": 44,
+     "y": 56
+    },
+    {
+     "x": 56,
+     "y": 56
+    },
+    {
+     "x": 56,
+     "y": 100
+    },
+    {
+     "x": 44,
+     "y": 100
+    }
+   ]
+  }
+ ],
+ "selectedLayerId": "4a32b90c-37e6-453b-929e-6969a970364b",
+ "layerType": "projection",
+ "scenes": [
+  {
+   "id": "58e98cc4-4af6-4aa3-9276-f8a757f9e1ed",
+   "name": "Triptych",
+   "note": null,
+   "layers": [
+    {
+     "id": "4a32b90c-37e6-453b-929e-6969a970364b",
+     "type": "projection",
+     "name": "Left wing",
+     "mediaId": "057c83bc-34fe-4a42-b742-a3bbe66d27ec",
+     "mediaName": "Hex wing",
+     "enabled": true,
+     "points": [
+      {
+       "x": 3,
+       "y": 20
+      },
+      {
+       "x": 30,
+       "y": 15
+      },
+      {
+       "x": 30,
+       "y": 85
+      },
+      {
+       "x": 3,
+       "y": 80
+      }
+     ]
+    },
+    {
+     "id": "3e6aa287-ac29-478f-a8ee-3d3d7424be5e",
+     "type": "projection",
+     "name": "Center",
+     "mediaId": "d080d923-5d4e-48ca-94e4-416f02e63d0e",
+     "mediaName": "Mandala",
+     "enabled": true,
+     "points": [
+      {
+       "x": 31,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 85
+      },
+      {
+       "x": 31,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "367d4d5b-282f-4801-b8ae-3050350470cf",
+     "type": "projection",
+     "name": "Right wing",
+     "mediaId": "f02606f3-7776-4808-be84-5e473c42ee76",
+     "mediaName": "Laser wing",
+     "enabled": true,
+     "points": [
+      {
+       "x": 70,
+       "y": 15
+      },
+      {
+       "x": 97,
+       "y": 20
+      },
+      {
+       "x": 97,
+       "y": 80
+      },
+      {
+       "x": 70,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "b6c1ae92-ea29-431b-8a6c-2b05df32aed7",
+     "type": "mask",
+     "name": "Doorway",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [
+      {
+       "x": 44,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 100
+      },
+      {
+       "x": 44,
+       "y": 100
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma core": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1.4,
+      "hue": 280
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "decay": 0,
+      "zoom": 1,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma core"
+    },
+    "Hex wing": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1.6,
+      "hue": 190
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Laser wing": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 20
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Ripples": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.1,
+      "hue": 120
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Coral": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 330,
+      "feed": 0.037,
+      "kill": 0.06,
+      "seed": 0.5,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    }
+   }
+  },
+  {
+   "id": "50a21349-2240-4ff8-b313-ed27327a04c7",
+   "name": "Coral",
+   "note": null,
+   "layers": [
+    {
+     "id": "4a32b90c-37e6-453b-929e-6969a970364b",
+     "type": "projection",
+     "name": "Left wing",
+     "mediaId": "2d9df706-6d5c-4ac9-800c-ed9d39aee8cb",
+     "mediaName": "Ripples",
+     "enabled": true,
+     "points": [
+      {
+       "x": 3,
+       "y": 20
+      },
+      {
+       "x": 30,
+       "y": 15
+      },
+      {
+       "x": 30,
+       "y": 85
+      },
+      {
+       "x": 3,
+       "y": 80
+      }
+     ]
+    },
+    {
+     "id": "3e6aa287-ac29-478f-a8ee-3d3d7424be5e",
+     "type": "projection",
+     "name": "Center",
+     "mediaId": "e2ad6a23-8d83-4b0b-9430-6381a7cb13e4",
+     "mediaName": "Coral",
+     "enabled": true,
+     "points": [
+      {
+       "x": 31,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 85
+      },
+      {
+       "x": 31,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "367d4d5b-282f-4801-b8ae-3050350470cf",
+     "type": "projection",
+     "name": "Right wing",
+     "mediaId": "2d9df706-6d5c-4ac9-800c-ed9d39aee8cb",
+     "mediaName": "Ripples",
+     "enabled": true,
+     "points": [
+      {
+       "x": 70,
+       "y": 15
+      },
+      {
+       "x": 97,
+       "y": 20
+      },
+      {
+       "x": 97,
+       "y": 80
+      },
+      {
+       "x": 70,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "b6c1ae92-ea29-431b-8a6c-2b05df32aed7",
+     "type": "mask",
+     "name": "Doorway",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [
+      {
+       "x": 44,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 100
+      },
+      {
+       "x": 44,
+       "y": 100
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma core": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1.4,
+      "hue": 280
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "decay": 0,
+      "zoom": 1,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma core"
+    },
+    "Hex wing": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1.6,
+      "hue": 190
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Laser wing": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 20
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Ripples": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.1,
+      "hue": 120
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Coral": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 330,
+      "feed": 0.037,
+      "kill": 0.06,
+      "seed": 0.5,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    }
+   }
+  },
+  {
+   "id": "ffd8d650-b6f8-4489-8a75-c831a66ebaa8",
+   "name": "Full mandala",
+   "note": null,
+   "layers": [
+    {
+     "id": "4a32b90c-37e6-453b-929e-6969a970364b",
+     "type": "projection",
+     "name": "Left wing",
+     "mediaId": "2d9df706-6d5c-4ac9-800c-ed9d39aee8cb",
+     "mediaName": "Ripples",
+     "enabled": false,
+     "points": [
+      {
+       "x": 3,
+       "y": 20
+      },
+      {
+       "x": 30,
+       "y": 15
+      },
+      {
+       "x": 30,
+       "y": 85
+      },
+      {
+       "x": 3,
+       "y": 80
+      }
+     ]
+    },
+    {
+     "id": "3e6aa287-ac29-478f-a8ee-3d3d7424be5e",
+     "type": "projection",
+     "name": "Center",
+     "mediaId": "d080d923-5d4e-48ca-94e4-416f02e63d0e",
+     "mediaName": "Mandala",
+     "enabled": true,
+     "points": [
+      {
+       "x": 3,
+       "y": 5
+      },
+      {
+       "x": 97,
+       "y": 5
+      },
+      {
+       "x": 97,
+       "y": 95
+      },
+      {
+       "x": 3,
+       "y": 95
+      }
+     ]
+    },
+    {
+     "id": "367d4d5b-282f-4801-b8ae-3050350470cf",
+     "type": "projection",
+     "name": "Right wing",
+     "mediaId": "2d9df706-6d5c-4ac9-800c-ed9d39aee8cb",
+     "mediaName": "Ripples",
+     "enabled": false,
+     "points": [
+      {
+       "x": 70,
+       "y": 15
+      },
+      {
+       "x": 97,
+       "y": 20
+      },
+      {
+       "x": 97,
+       "y": 80
+      },
+      {
+       "x": 70,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "b6c1ae92-ea29-431b-8a6c-2b05df32aed7",
+     "type": "mask",
+     "name": "Doorway",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [
+      {
+       "x": 44,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 56
+      },
+      {
+       "x": 56,
+       "y": 100
+      },
+      {
+       "x": 44,
+       "y": 100
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma core": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1.4,
+      "hue": 280
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Mandala": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 300,
+      "decay": 0,
+      "zoom": 1,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma core"
+    },
+    "Hex wing": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1.6,
+      "hue": 190
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Laser wing": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 20
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Ripples": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.1,
+      "hue": 120
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Coral": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 330,
+      "feed": 0.037,
+      "kill": 0.06,
+      "seed": 0.5,
+      "wiggle": 0.012,
+      "wfreq": 9,
+      "glow": 0.3,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    }
+   }
+  }
+ ],
+ "activeSceneId": "58e98cc4-4af6-4aa3-9276-f8a757f9e1ed",
+ "midi": {
+  "ccMaps": []
+ },
+ "settings": {
+  "pcToScene": false,
+  "bumpKey": " ",
+  "quality": "med"
+ },
+ "title": "Wall Mandala"
+}

@@ -1,0 +1,2690 @@
+{
+ "version": "2.0.0",
+ "savedAt": "2026-10-23T17:08:53.828Z",
+ "media": [
+  {
+   "id": "55ee8de8-34cd-43c3-9932-89088b395b49",
+   "name": "Webcam",
+   "filename": "Webcam",
+   "type": "camera",
+   "kind": "camera",
+   "needsRelink": true
+  },
+  {
+   "id": "71ee785c-3183-4c46-9649-ba0af103b849",
+   "name": "YouTube: Me at the zoo",
+   "filename": "YouTube: Me at the zoo",
+   "type": "youtube",
+   "kind": "youtube",
+   "needsRelink": false,
+   "videoId": "jNQXAC9IVRw",
+   "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+   "remote": true
+  },
+  {
+   "id": "198d0623-dd9a-43be-a1a2-54904350f31c",
+   "name": "Remote mp4 (flower)",
+   "filename": "Remote mp4 (flower)",
+   "type": "video",
+   "kind": "video",
+   "needsRelink": false,
+   "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+   "remote": true
+  },
+  {
+   "id": "8d171434-313d-4015-8654-6bfc9d31983e",
+   "name": "Plasma",
+   "filename": "Plasma",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "plasma",
+   "params": {
+    "speed": 0.9,
+    "scale": 1.3,
+    "hue": 200
+   },
+   "sourceName": null,
+   "mods": [
+    {
+     "signal": "bass",
+     "param": "scale",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": true
+  },
+  {
+   "id": "4db3d25e-7462-4a51-8fc6-6472457c9979",
+   "name": "Perlin",
+   "filename": "Perlin",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "perlin",
+   "params": {
+    "speed": 0.6,
+    "scale": 1,
+    "hue": 30
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "b195dda7-76d9-48e4-aad3-6d1584c50935",
+   "name": "Lasers",
+   "filename": "Lasers",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "lasers",
+   "params": {
+    "speed": 1.2,
+    "scale": 1,
+    "hue": 0
+   },
+   "sourceName": null,
+   "mods": [
+    {
+     "signal": "high",
+     "param": "scale",
+     "amount": 0.6
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "1a81df86-f7f0-4a20-a024-d3b3f77ff3b8",
+   "name": "Hexagons",
+   "filename": "Hexagons",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "hexagons",
+   "params": {
+    "speed": 1,
+    "scale": 1.5,
+    "hue": 160
+   },
+   "sourceName": null,
+   "mods": [
+    {
+     "signal": "mid",
+     "param": "speed",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "387c6feb-d13d-495b-8a3c-d505cee5ce24",
+   "name": "Triangles",
+   "filename": "Triangles",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "triangles",
+   "params": {
+    "speed": 1,
+    "scale": 1.2,
+    "hue": 300
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "cc729b14-abba-476e-88f5-ba65d0abd7bc",
+   "name": "Circles",
+   "filename": "Circles",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "circles",
+   "params": {
+    "speed": 0.8,
+    "scale": 1,
+    "hue": 90
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "de90e58e-53f6-4438-83aa-4b204f960581",
+   "name": "Rectangles",
+   "filename": "Rectangles",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "rectangles",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 45
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "e6026fbc-3c77-449e-a5e8-c3883a77dad0",
+   "name": "Stripes",
+   "filename": "Stripes",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "stripes",
+   "params": {
+    "speed": 0.7,
+    "scale": 1,
+    "hue": 0
+   },
+   "sourceName": null,
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "869cd33b-966f-472b-9e58-75d7f2e75a99",
+   "name": "Motion cut",
+   "filename": "Motion cut",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "motioncut",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 280,
+    "learn": 0.02,
+    "threshold": 0.16,
+    "soft": 0.08,
+    "hold": 0.95,
+    "ghost": 0,
+    "tint": 0.4,
+    "reset": 0
+   },
+   "sourceName": "Webcam",
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "6bf0f9ec-9f53-41e0-b533-8d7e8c11e00d",
+   "name": "Alien skin",
+   "filename": "Alien skin",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "reaction",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 120,
+    "feed": 0.03,
+    "kill": 0.057,
+    "seed": 0.9,
+    "wiggle": 0.015,
+    "wfreq": 9,
+    "glow": 0.4,
+    "reset": 0
+   },
+   "sourceName": "Motion cut",
+   "mods": [
+    {
+     "signal": "motion",
+     "param": "feed",
+     "amount": 0.3
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "c62993c4-ec46-4e43-b58d-a573daefdf74",
+   "name": "Tunnel",
+   "filename": "Tunnel",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "feedback",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 200,
+    "decay": 0.95,
+    "zoom": 1.012,
+    "warp": 0.005,
+    "rot": 0.005,
+    "sym": 6,
+    "hueShift": 0.04,
+    "edge": 0.4
+   },
+   "sourceName": "Motion cut",
+   "mods": [
+    {
+     "signal": "motion",
+     "param": "zoom",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": true
+  },
+  {
+   "id": "3942cb76-d162-4eef-a256-39be6f30cd42",
+   "name": "Kaleido of plasma",
+   "filename": "Kaleido of plasma",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "kaleido",
+   "params": {
+    "speed": 1,
+    "scale": 1,
+    "hue": 0,
+    "decay": 0,
+    "zoom": 1.005,
+    "warp": 0.005,
+    "rot": 0.01,
+    "sym": 8,
+    "hueShift": 0.03,
+    "edge": 0
+   },
+   "sourceName": "Plasma",
+   "mods": [
+    {
+     "signal": "bass",
+     "param": "sym",
+     "amount": 0.5
+    }
+   ],
+   "beatHue": false
+  },
+  {
+   "id": "b64b4978-0c1b-40f4-815b-e369033cc6db",
+   "name": "Neon edges",
+   "filename": "Neon edges",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "filter",
+   "params": {
+    "mode": 1,
+    "amount": 0.6,
+    "scale": 1,
+    "hue": 200,
+    "speed": 1
+   },
+   "sourceName": "Webcam",
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "366168ae-f050-427e-bcd0-5dfcef041847",
+   "name": "Posterize",
+   "filename": "Posterize",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "filter",
+   "params": {
+    "mode": 2,
+    "amount": 0.5,
+    "scale": 1,
+    "hue": 0,
+    "speed": 1
+   },
+   "sourceName": "Webcam",
+   "mods": [],
+   "beatHue": false
+  },
+  {
+   "id": "477e96ea-1203-4a2a-9236-2590a52b899a",
+   "name": "Pixelate",
+   "filename": "Pixelate",
+   "type": "generator",
+   "kind": "generator",
+   "needsRelink": false,
+   "gen": "filter",
+   "params": {
+    "mode": 4,
+    "amount": 0.5,
+    "scale": 1.5,
+    "hue": 0,
+    "speed": 1
+   },
+   "sourceName": "Remote mp4 (flower)",
+   "mods": [],
+   "beatHue": false
+  }
+ ],
+ "layers": [
+  {
+   "id": "3e2ba608-9dc2-41e4-8726-33c35b2f5f08",
+   "type": "projection",
+   "name": "Plasma",
+   "mediaId": "8d171434-313d-4015-8654-6bfc9d31983e",
+   "mediaName": "Plasma",
+   "enabled": true,
+   "points": [
+    {
+     "x": 1.5,
+     "y": 3
+    },
+    {
+     "x": 23.5,
+     "y": 3
+    },
+    {
+     "x": 23.5,
+     "y": 31
+    },
+    {
+     "x": 1.5,
+     "y": 31
+    }
+   ]
+  },
+  {
+   "id": "54a3dbb1-b910-425e-a1bc-497e546a67dc",
+   "type": "projection",
+   "name": "Perlin",
+   "mediaId": "4db3d25e-7462-4a51-8fc6-6472457c9979",
+   "mediaName": "Perlin",
+   "enabled": true,
+   "points": [
+    {
+     "x": 26.5,
+     "y": 3
+    },
+    {
+     "x": 48.5,
+     "y": 3
+    },
+    {
+     "x": 48.5,
+     "y": 31
+    },
+    {
+     "x": 26.5,
+     "y": 31
+    }
+   ]
+  },
+  {
+   "id": "03db5e89-3d6d-40fa-b0d2-c94168cd5096",
+   "type": "projection",
+   "name": "Lasers",
+   "mediaId": "b195dda7-76d9-48e4-aad3-6d1584c50935",
+   "mediaName": "Lasers",
+   "enabled": true,
+   "points": [
+    {
+     "x": 51.5,
+     "y": 3
+    },
+    {
+     "x": 73.5,
+     "y": 3
+    },
+    {
+     "x": 73.5,
+     "y": 31
+    },
+    {
+     "x": 51.5,
+     "y": 31
+    }
+   ]
+  },
+  {
+   "id": "cdb0be09-6559-4eb2-9eec-220522792056",
+   "type": "projection",
+   "name": "Hexagons",
+   "mediaId": "1a81df86-f7f0-4a20-a024-d3b3f77ff3b8",
+   "mediaName": "Hexagons",
+   "enabled": true,
+   "points": [
+    {
+     "x": 76.5,
+     "y": 3
+    },
+    {
+     "x": 98.5,
+     "y": 3
+    },
+    {
+     "x": 98.5,
+     "y": 31
+    },
+    {
+     "x": 76.5,
+     "y": 31
+    }
+   ]
+  },
+  {
+   "id": "ae5451b6-5d2e-4b30-aa53-ff31b2489adb",
+   "type": "projection",
+   "name": "Triangles",
+   "mediaId": "387c6feb-d13d-495b-8a3c-d505cee5ce24",
+   "mediaName": "Triangles",
+   "enabled": true,
+   "points": [
+    {
+     "x": 1.5,
+     "y": 36
+    },
+    {
+     "x": 23.5,
+     "y": 36
+    },
+    {
+     "x": 23.5,
+     "y": 64
+    },
+    {
+     "x": 1.5,
+     "y": 64
+    }
+   ]
+  },
+  {
+   "id": "03dd7cbf-bbcf-4569-9acb-357950ab6eb7",
+   "type": "projection",
+   "name": "Circles",
+   "mediaId": "cc729b14-abba-476e-88f5-ba65d0abd7bc",
+   "mediaName": "Circles",
+   "enabled": true,
+   "points": [
+    {
+     "x": 26.5,
+     "y": 36
+    },
+    {
+     "x": 48.5,
+     "y": 36
+    },
+    {
+     "x": 48.5,
+     "y": 64
+    },
+    {
+     "x": 26.5,
+     "y": 64
+    }
+   ]
+  },
+  {
+   "id": "14c2c136-8c01-4028-a0a5-7dbb0354243d",
+   "type": "projection",
+   "name": "Rectangles",
+   "mediaId": "de90e58e-53f6-4438-83aa-4b204f960581",
+   "mediaName": "Rectangles",
+   "enabled": true,
+   "points": [
+    {
+     "x": 51.5,
+     "y": 36
+    },
+    {
+     "x": 73.5,
+     "y": 36
+    },
+    {
+     "x": 73.5,
+     "y": 64
+    },
+    {
+     "x": 51.5,
+     "y": 64
+    }
+   ]
+  },
+  {
+   "id": "36322701-4be8-4f66-975a-dc41300a3048",
+   "type": "projection",
+   "name": "Stripes",
+   "mediaId": "e6026fbc-3c77-449e-a5e8-c3883a77dad0",
+   "mediaName": "Stripes",
+   "enabled": true,
+   "points": [
+    {
+     "x": 76.5,
+     "y": 36
+    },
+    {
+     "x": 98.5,
+     "y": 36
+    },
+    {
+     "x": 98.5,
+     "y": 64
+    },
+    {
+     "x": 76.5,
+     "y": 64
+    }
+   ]
+  },
+  {
+   "id": "f4465282-2a11-4802-bea0-93f98df43ca7",
+   "type": "projection",
+   "name": "Kaleido",
+   "mediaId": "3942cb76-d162-4eef-a256-39be6f30cd42",
+   "mediaName": "Kaleido of plasma",
+   "enabled": true,
+   "points": [
+    {
+     "x": 1.5,
+     "y": 69
+    },
+    {
+     "x": 23.5,
+     "y": 69
+    },
+    {
+     "x": 23.5,
+     "y": 97
+    },
+    {
+     "x": 1.5,
+     "y": 97
+    }
+   ]
+  },
+  {
+   "id": "a43943e9-3083-4326-bb37-29b92ed528cb",
+   "type": "projection",
+   "name": "YouTube",
+   "mediaId": "71ee785c-3183-4c46-9649-ba0af103b849",
+   "mediaName": "YouTube: Me at the zoo",
+   "enabled": true,
+   "points": [
+    {
+     "x": 26.5,
+     "y": 69
+    },
+    {
+     "x": 48.5,
+     "y": 69
+    },
+    {
+     "x": 48.5,
+     "y": 97
+    },
+    {
+     "x": 26.5,
+     "y": 97
+    }
+   ]
+  },
+  {
+   "id": "b90cde08-d70f-414e-81e9-b564f23002a0",
+   "type": "projection",
+   "name": "Remote mp4",
+   "mediaId": "198d0623-dd9a-43be-a1a2-54904350f31c",
+   "mediaName": "Remote mp4 (flower)",
+   "enabled": true,
+   "points": [
+    {
+     "x": 51.5,
+     "y": 69
+    },
+    {
+     "x": 73.5,
+     "y": 69
+    },
+    {
+     "x": 73.5,
+     "y": 97
+    },
+    {
+     "x": 51.5,
+     "y": 97
+    }
+   ]
+  },
+  {
+   "id": "48eb02fb-c4db-442f-807a-1207374a49de",
+   "type": "projection",
+   "name": "Webcam",
+   "mediaId": null,
+   "mediaName": "Webcam",
+   "enabled": true,
+   "points": [
+    {
+     "x": 76.5,
+     "y": 69
+    },
+    {
+     "x": 98.5,
+     "y": 69
+    },
+    {
+     "x": 98.5,
+     "y": 97
+    },
+    {
+     "x": 76.5,
+     "y": 97
+    }
+   ]
+  }
+ ],
+ "selectedLayerId": "3e2ba608-9dc2-41e4-8726-33c35b2f5f08",
+ "layerType": "projection",
+ "scenes": [
+  {
+   "id": "32753e99-46fd-44e6-950e-0dcf85a79028",
+   "name": "Grid: every source",
+   "note": 36,
+   "layers": [
+    {
+     "id": "3e2ba608-9dc2-41e4-8726-33c35b2f5f08",
+     "type": "projection",
+     "name": "Plasma",
+     "mediaId": "8d171434-313d-4015-8654-6bfc9d31983e",
+     "mediaName": "Plasma",
+     "enabled": true,
+     "points": [
+      {
+       "x": 1.5,
+       "y": 3
+      },
+      {
+       "x": 23.5,
+       "y": 3
+      },
+      {
+       "x": 23.5,
+       "y": 31
+      },
+      {
+       "x": 1.5,
+       "y": 31
+      }
+     ]
+    },
+    {
+     "id": "54a3dbb1-b910-425e-a1bc-497e546a67dc",
+     "type": "projection",
+     "name": "Perlin",
+     "mediaId": "4db3d25e-7462-4a51-8fc6-6472457c9979",
+     "mediaName": "Perlin",
+     "enabled": true,
+     "points": [
+      {
+       "x": 26.5,
+       "y": 3
+      },
+      {
+       "x": 48.5,
+       "y": 3
+      },
+      {
+       "x": 48.5,
+       "y": 31
+      },
+      {
+       "x": 26.5,
+       "y": 31
+      }
+     ]
+    },
+    {
+     "id": "03db5e89-3d6d-40fa-b0d2-c94168cd5096",
+     "type": "projection",
+     "name": "Lasers",
+     "mediaId": "b195dda7-76d9-48e4-aad3-6d1584c50935",
+     "mediaName": "Lasers",
+     "enabled": true,
+     "points": [
+      {
+       "x": 51.5,
+       "y": 3
+      },
+      {
+       "x": 73.5,
+       "y": 3
+      },
+      {
+       "x": 73.5,
+       "y": 31
+      },
+      {
+       "x": 51.5,
+       "y": 31
+      }
+     ]
+    },
+    {
+     "id": "cdb0be09-6559-4eb2-9eec-220522792056",
+     "type": "projection",
+     "name": "Hexagons",
+     "mediaId": "1a81df86-f7f0-4a20-a024-d3b3f77ff3b8",
+     "mediaName": "Hexagons",
+     "enabled": true,
+     "points": [
+      {
+       "x": 76.5,
+       "y": 3
+      },
+      {
+       "x": 98.5,
+       "y": 3
+      },
+      {
+       "x": 98.5,
+       "y": 31
+      },
+      {
+       "x": 76.5,
+       "y": 31
+      }
+     ]
+    },
+    {
+     "id": "ae5451b6-5d2e-4b30-aa53-ff31b2489adb",
+     "type": "projection",
+     "name": "Triangles",
+     "mediaId": "387c6feb-d13d-495b-8a3c-d505cee5ce24",
+     "mediaName": "Triangles",
+     "enabled": true,
+     "points": [
+      {
+       "x": 1.5,
+       "y": 36
+      },
+      {
+       "x": 23.5,
+       "y": 36
+      },
+      {
+       "x": 23.5,
+       "y": 64
+      },
+      {
+       "x": 1.5,
+       "y": 64
+      }
+     ]
+    },
+    {
+     "id": "03dd7cbf-bbcf-4569-9acb-357950ab6eb7",
+     "type": "projection",
+     "name": "Circles",
+     "mediaId": "cc729b14-abba-476e-88f5-ba65d0abd7bc",
+     "mediaName": "Circles",
+     "enabled": true,
+     "points": [
+      {
+       "x": 26.5,
+       "y": 36
+      },
+      {
+       "x": 48.5,
+       "y": 36
+      },
+      {
+       "x": 48.5,
+       "y": 64
+      },
+      {
+       "x": 26.5,
+       "y": 64
+      }
+     ]
+    },
+    {
+     "id": "14c2c136-8c01-4028-a0a5-7dbb0354243d",
+     "type": "projection",
+     "name": "Rectangles",
+     "mediaId": "de90e58e-53f6-4438-83aa-4b204f960581",
+     "mediaName": "Rectangles",
+     "enabled": true,
+     "points": [
+      {
+       "x": 51.5,
+       "y": 36
+      },
+      {
+       "x": 73.5,
+       "y": 36
+      },
+      {
+       "x": 73.5,
+       "y": 64
+      },
+      {
+       "x": 51.5,
+       "y": 64
+      }
+     ]
+    },
+    {
+     "id": "36322701-4be8-4f66-975a-dc41300a3048",
+     "type": "projection",
+     "name": "Stripes",
+     "mediaId": "e6026fbc-3c77-449e-a5e8-c3883a77dad0",
+     "mediaName": "Stripes",
+     "enabled": true,
+     "points": [
+      {
+       "x": 76.5,
+       "y": 36
+      },
+      {
+       "x": 98.5,
+       "y": 36
+      },
+      {
+       "x": 98.5,
+       "y": 64
+      },
+      {
+       "x": 76.5,
+       "y": 64
+      }
+     ]
+    },
+    {
+     "id": "f4465282-2a11-4802-bea0-93f98df43ca7",
+     "type": "projection",
+     "name": "Kaleido",
+     "mediaId": "3942cb76-d162-4eef-a256-39be6f30cd42",
+     "mediaName": "Kaleido of plasma",
+     "enabled": true,
+     "points": [
+      {
+       "x": 1.5,
+       "y": 69
+      },
+      {
+       "x": 23.5,
+       "y": 69
+      },
+      {
+       "x": 23.5,
+       "y": 97
+      },
+      {
+       "x": 1.5,
+       "y": 97
+      }
+     ]
+    },
+    {
+     "id": "a43943e9-3083-4326-bb37-29b92ed528cb",
+     "type": "projection",
+     "name": "YouTube",
+     "mediaId": "71ee785c-3183-4c46-9649-ba0af103b849",
+     "mediaName": "YouTube: Me at the zoo",
+     "enabled": true,
+     "points": [
+      {
+       "x": 26.5,
+       "y": 69
+      },
+      {
+       "x": 48.5,
+       "y": 69
+      },
+      {
+       "x": 48.5,
+       "y": 97
+      },
+      {
+       "x": 26.5,
+       "y": 97
+      }
+     ]
+    },
+    {
+     "id": "b90cde08-d70f-414e-81e9-b564f23002a0",
+     "type": "projection",
+     "name": "Remote mp4",
+     "mediaId": "198d0623-dd9a-43be-a1a2-54904350f31c",
+     "mediaName": "Remote mp4 (flower)",
+     "enabled": true,
+     "points": [
+      {
+       "x": 51.5,
+       "y": 69
+      },
+      {
+       "x": 73.5,
+       "y": 69
+      },
+      {
+       "x": 73.5,
+       "y": 97
+      },
+      {
+       "x": 51.5,
+       "y": 97
+      }
+     ]
+    },
+    {
+     "id": "48eb02fb-c4db-442f-807a-1207374a49de",
+     "type": "projection",
+     "name": "Webcam",
+     "mediaId": null,
+     "mediaName": "Webcam",
+     "enabled": true,
+     "points": [
+      {
+       "x": 76.5,
+       "y": 69
+      },
+      {
+       "x": 98.5,
+       "y": 69
+      },
+      {
+       "x": 98.5,
+       "y": 97
+      },
+      {
+       "x": 76.5,
+       "y": 97
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.3,
+      "hue": 200
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Perlin": {
+     "params": {
+      "speed": 0.6,
+      "scale": 1,
+      "hue": 30
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Lasers": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Hexagons": {
+     "params": {
+      "speed": 1,
+      "scale": 1.5,
+      "hue": 160
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Triangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 300
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Circles": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1,
+      "hue": 90
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Rectangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 45
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Stripes": {
+     "params": {
+      "speed": 0.7,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 280,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0.4,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.015,
+      "wfreq": 9,
+      "glow": 0.4,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.95,
+      "zoom": 1.012,
+      "warp": 0.005,
+      "rot": 0.005,
+      "sym": 6,
+      "hueShift": 0.04,
+      "edge": 0.4
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Kaleido of plasma": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma"
+    },
+    "Neon edges": {
+     "params": {
+      "mode": 1,
+      "amount": 0.6,
+      "scale": 1,
+      "hue": 200,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Posterize": {
+     "params": {
+      "mode": 2,
+      "amount": 0.5,
+      "scale": 1,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Pixelate": {
+     "params": {
+      "mode": 4,
+      "amount": 0.5,
+      "scale": 1.5,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Remote mp4 (flower)"
+    }
+   }
+  },
+  {
+   "id": "9c1c3a1d-a069-4c2d-924b-64d2bd403eeb",
+   "name": "Webcam effects",
+   "note": 37,
+   "layers": [
+    {
+     "id": "0fb4ac94-b453-4840-abbb-1f587d08d4b9",
+     "type": "projection",
+     "name": "Skin",
+     "mediaId": "6bf0f9ec-9f53-41e0-b533-8d7e8c11e00d",
+     "mediaName": "Alien skin",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 4
+      },
+      {
+       "x": 50,
+       "y": 4
+      },
+      {
+       "x": 50,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    },
+    {
+     "id": "1e21bdba-3aa4-4e0c-8c15-4c2bf1e7c12f",
+     "type": "projection",
+     "name": "Tunnel",
+     "mediaId": "c62993c4-ec46-4e43-b58d-a573daefdf74",
+     "mediaName": "Tunnel",
+     "enabled": true,
+     "points": [
+      {
+       "x": 50,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 4
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 50,
+       "y": 96
+      }
+     ]
+    },
+    {
+     "id": "7c83aee3-1835-4829-8696-212586669d7a",
+     "type": "mask",
+     "name": "Doorway",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [
+      {
+       "x": 43,
+       "y": 60
+      },
+      {
+       "x": 57,
+       "y": 60
+      },
+      {
+       "x": 57,
+       "y": 100
+      },
+      {
+       "x": 43,
+       "y": 100
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.3,
+      "hue": 200
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Perlin": {
+     "params": {
+      "speed": 0.6,
+      "scale": 1,
+      "hue": 30
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Lasers": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Hexagons": {
+     "params": {
+      "speed": 1,
+      "scale": 1.5,
+      "hue": 160
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Triangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 300
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Circles": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1,
+      "hue": 90
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Rectangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 45
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Stripes": {
+     "params": {
+      "speed": 0.7,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 280,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0.4,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.015,
+      "wfreq": 9,
+      "glow": 0.4,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.95,
+      "zoom": 1.012,
+      "warp": 0.005,
+      "rot": 0.005,
+      "sym": 6,
+      "hueShift": 0.04,
+      "edge": 0.4
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Kaleido of plasma": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma"
+    },
+    "Neon edges": {
+     "params": {
+      "mode": 1,
+      "amount": 0.6,
+      "scale": 1,
+      "hue": 200,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Posterize": {
+     "params": {
+      "mode": 2,
+      "amount": 0.5,
+      "scale": 1,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Pixelate": {
+     "params": {
+      "mode": 4,
+      "amount": 0.5,
+      "scale": 1.5,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Remote mp4 (flower)"
+    }
+   }
+  },
+  {
+   "id": "9bef9920-beea-484a-8e75-683bcdf70273",
+   "name": "Camera filters",
+   "note": 38,
+   "layers": [
+    {
+     "id": "21cf5b31-b882-4c3f-b0e3-dffdf7d522a7",
+     "type": "projection",
+     "name": "Raw",
+     "mediaId": "55ee8de8-34cd-43c3-9932-89088b395b49",
+     "mediaName": "Webcam",
+     "enabled": true,
+     "points": [
+      {
+       "x": 1,
+       "y": 5
+      },
+      {
+       "x": 24,
+       "y": 5
+      },
+      {
+       "x": 24,
+       "y": 55
+      },
+      {
+       "x": 1,
+       "y": 55
+      }
+     ]
+    },
+    {
+     "id": "3447e25d-6407-4de4-9c67-1123f9b4c720",
+     "type": "projection",
+     "name": "Neon edges",
+     "mediaId": "b64b4978-0c1b-40f4-815b-e369033cc6db",
+     "mediaName": "Neon edges",
+     "enabled": true,
+     "points": [
+      {
+       "x": 26,
+       "y": 5
+      },
+      {
+       "x": 49,
+       "y": 5
+      },
+      {
+       "x": 49,
+       "y": 55
+      },
+      {
+       "x": 26,
+       "y": 55
+      }
+     ]
+    },
+    {
+     "id": "549ca2b0-ba9e-4ee1-b955-9c29b65af3b4",
+     "type": "projection",
+     "name": "Posterize",
+     "mediaId": "366168ae-f050-427e-bcd0-5dfcef041847",
+     "mediaName": "Posterize",
+     "enabled": true,
+     "points": [
+      {
+       "x": 51,
+       "y": 5
+      },
+      {
+       "x": 74,
+       "y": 5
+      },
+      {
+       "x": 74,
+       "y": 55
+      },
+      {
+       "x": 51,
+       "y": 55
+      }
+     ]
+    },
+    {
+     "id": "4dd9ff58-39f9-42ca-8292-384df44e5cdb",
+     "type": "projection",
+     "name": "Pixelate mp4",
+     "mediaId": "477e96ea-1203-4a2a-9236-2590a52b899a",
+     "mediaName": "Pixelate",
+     "enabled": true,
+     "points": [
+      {
+       "x": 76,
+       "y": 5
+      },
+      {
+       "x": 99,
+       "y": 5
+      },
+      {
+       "x": 99,
+       "y": 55
+      },
+      {
+       "x": 76,
+       "y": 55
+      }
+     ]
+    },
+    {
+     "id": "54d0c799-f280-4c68-a366-f5ea7f2d3ca5",
+     "type": "projection",
+     "name": "Motion cut",
+     "mediaId": "869cd33b-966f-472b-9e58-75d7f2e75a99",
+     "mediaName": "Motion cut",
+     "enabled": true,
+     "points": [
+      {
+       "x": 2,
+       "y": 60
+      },
+      {
+       "x": 98,
+       "y": 60
+      },
+      {
+       "x": 98,
+       "y": 96
+      },
+      {
+       "x": 2,
+       "y": 96
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.3,
+      "hue": 200
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Perlin": {
+     "params": {
+      "speed": 0.6,
+      "scale": 1,
+      "hue": 30
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Lasers": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Hexagons": {
+     "params": {
+      "speed": 1,
+      "scale": 1.5,
+      "hue": 160
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Triangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 300
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Circles": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1,
+      "hue": 90
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Rectangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 45
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Stripes": {
+     "params": {
+      "speed": 0.7,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 280,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0.4,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.015,
+      "wfreq": 9,
+      "glow": 0.4,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.95,
+      "zoom": 1.012,
+      "warp": 0.005,
+      "rot": 0.005,
+      "sym": 6,
+      "hueShift": 0.04,
+      "edge": 0.4
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Kaleido of plasma": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma"
+    },
+    "Neon edges": {
+     "params": {
+      "mode": 1,
+      "amount": 0.6,
+      "scale": 1,
+      "hue": 200,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Posterize": {
+     "params": {
+      "mode": 2,
+      "amount": 0.5,
+      "scale": 1,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Pixelate": {
+     "params": {
+      "mode": 4,
+      "amount": 0.5,
+      "scale": 1.5,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Remote mp4 (flower)"
+    }
+   }
+  },
+  {
+   "id": "12a8e02c-4b74-4a24-a9e4-d1adbcb0f490",
+   "name": "Physics over YouTube",
+   "note": 39,
+   "layers": [
+    {
+     "id": "53f77cb4-2fd0-4a06-8264-d7d79dbebf1d",
+     "type": "projection",
+     "name": "Backdrop",
+     "mediaId": "71ee785c-3183-4c46-9649-ba0af103b849",
+     "mediaName": "YouTube: Me at the zoo",
+     "enabled": true,
+     "points": [
+      {
+       "x": 8,
+       "y": 6
+      },
+      {
+       "x": 92,
+       "y": 12
+      },
+      {
+       "x": 95,
+       "y": 94
+      },
+      {
+       "x": 5,
+       "y": 88
+      }
+     ]
+    },
+    {
+     "id": "24958c61-f3c9-45d6-bb4e-7c8a2740e04c",
+     "type": "mask",
+     "name": "Window",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [
+      {
+       "x": 40,
+       "y": 28
+      },
+      {
+       "x": 60,
+       "y": 28
+      },
+      {
+       "x": 60,
+       "y": 52
+      },
+      {
+       "x": 40,
+       "y": 52
+      }
+     ]
+    },
+    {
+     "id": "e8dc35f1-2edf-4787-816e-ae35e6541781",
+     "type": "physics",
+     "name": "Arena",
+     "mediaId": null,
+     "mediaName": null,
+     "enabled": true,
+     "points": [],
+     "physics": {
+      "gravity": 0.3,
+      "speed": 1,
+      "bounce": 0.9,
+      "size": 5,
+      "spin": 1.5,
+      "trail": 0.5,
+      "mod": {
+       "signal": "bass",
+       "param": "size",
+       "amount": 0.4
+      },
+      "beatKick": true,
+      "objects": [
+       {
+        "id": "27180d99-c385-4fc2-be70-0f155430eaa3",
+        "kind": "shape",
+        "shape": "circle",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 74.80327485749136,
+        "y": 40.696046173483055,
+        "vx": 10.351201237360533,
+        "vy": 17.586986418680603,
+        "r": 5,
+        "color": "hsl(226, 90%, 55%)",
+        "rot": 0,
+        "rotV": -0.7875802903036029
+       },
+       {
+        "id": "39c0664a-eb9e-47af-89fe-bb68d595d26d",
+        "kind": "shape",
+        "shape": "hexagon",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 49.98064604452518,
+        "y": 55.581304530073986,
+        "vx": -25.04219314719234,
+        "vy": -5.860994654161413,
+        "r": 5,
+        "color": "hsl(58, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.5985348210753667
+       },
+       {
+        "id": "eadae71c-f0c9-4c6b-a784-7963c63495d1",
+        "kind": "shape",
+        "shape": "triangle",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 0.6425545596502991,
+        "y": 19.351804103622104,
+        "vx": -25.751323214080312,
+        "vy": -12.071941682828449,
+        "r": 5,
+        "color": "hsl(227, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.19523528840192883
+       },
+       {
+        "id": "52a487f6-c799-4500-9872-fee0d96ccce2",
+        "kind": "shape",
+        "shape": "rect",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 44.19324334283522,
+        "y": 93.3361150694195,
+        "vx": -22.956362975790256,
+        "vy": 12.914324909335466,
+        "r": 5,
+        "color": "hsl(315, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.672736191586957
+       },
+       {
+        "id": "bf7e4ac8-8249-4290-843f-fa2bbde31f4e",
+        "kind": "shape",
+        "shape": "circle",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 29.311379402215685,
+        "y": 30.593027865520682,
+        "vx": 15.279546549837319,
+        "vy": -35.96791035263752,
+        "r": 5,
+        "color": "hsl(67, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.3417037450825571
+       },
+       {
+        "id": "7ccd5e64-df0e-495f-a5a7-b4aef1934747",
+        "kind": "media",
+        "shape": "circle",
+        "enabled": true,
+        "alpha": 1,
+        "mediaId": "6bf0f9ec-9f53-41e0-b533-8d7e8c11e00d",
+        "mediaName": "Alien skin",
+        "x": 13.427395712265266,
+        "y": 80.91709865899439,
+        "vx": -29.276015482180167,
+        "vy": 7.932735073178921,
+        "r": 9,
+        "color": "hsl(172, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.4
+       },
+       {
+        "id": "51e730cc-f681-4194-a7ca-7ec17b9750c5",
+        "kind": "media",
+        "shape": "circle",
+        "enabled": true,
+        "alpha": 0.6,
+        "mediaId": "198d0623-dd9a-43be-a1a2-54904350f31c",
+        "mediaName": "Remote mp4 (flower)",
+        "x": 90.02438226038197,
+        "y": 20.087151091112954,
+        "vx": 16.93009218757096,
+        "vy": -12.746145691997485,
+        "r": 9,
+        "color": "hsl(243, 90%, 55%)",
+        "rot": 0,
+        "rotV": -0.3
+       },
+       {
+        "id": "9b5db584-e59a-49cd-b71f-481d314509cb",
+        "kind": "shape",
+        "shape": "circle",
+        "enabled": true,
+        "alpha": 0.35,
+        "mediaId": null,
+        "mediaName": null,
+        "x": 9.149535074092274,
+        "y": 63.58108979325172,
+        "vx": 19.67018321829278,
+        "vy": 32.71809511241467,
+        "r": 12,
+        "color": "hsl(200, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.00531446247323708
+       },
+       {
+        "id": "085738d0-6d2c-4dd0-9696-f530811990ed",
+        "kind": "media",
+        "shape": "circle",
+        "enabled": false,
+        "alpha": 1,
+        "mediaId": "8d171434-313d-4015-8654-6bfc9d31983e",
+        "mediaName": "Plasma",
+        "x": 72.88477395228588,
+        "y": 82.23389200877172,
+        "vx": 26.82032210089395,
+        "vy": 1.5990425008724287,
+        "r": 7,
+        "color": "hsl(271, 90%, 55%)",
+        "rot": 0,
+        "rotV": 0.6
+       }
+      ]
+     }
+    }
+   ],
+   "generators": {
+    "Plasma": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.3,
+      "hue": 200
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Perlin": {
+     "params": {
+      "speed": 0.6,
+      "scale": 1,
+      "hue": 30
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Lasers": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Hexagons": {
+     "params": {
+      "speed": 1,
+      "scale": 1.5,
+      "hue": 160
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Triangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 300
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Circles": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1,
+      "hue": 90
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Rectangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 45
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Stripes": {
+     "params": {
+      "speed": 0.7,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 280,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0.4,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.015,
+      "wfreq": 9,
+      "glow": 0.4,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.95,
+      "zoom": 1.012,
+      "warp": 0.005,
+      "rot": 0.005,
+      "sym": 6,
+      "hueShift": 0.04,
+      "edge": 0.4
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Kaleido of plasma": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma"
+    },
+    "Neon edges": {
+     "params": {
+      "mode": 1,
+      "amount": 0.6,
+      "scale": 1,
+      "hue": 200,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Posterize": {
+     "params": {
+      "mode": 2,
+      "amount": 0.5,
+      "scale": 1,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Pixelate": {
+     "params": {
+      "mode": 4,
+      "amount": 0.5,
+      "scale": 1.5,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Remote mp4 (flower)"
+    }
+   }
+  },
+  {
+   "id": "adae0b2f-04f4-4b07-8c35-d52a4ab382ee",
+   "name": "Mandala wall",
+   "note": 40,
+   "layers": [
+    {
+     "id": "076f16a4-874f-40f2-b830-726adc59f9d3",
+     "type": "projection",
+     "name": "Left",
+     "mediaId": "1a81df86-f7f0-4a20-a024-d3b3f77ff3b8",
+     "mediaName": "Hexagons",
+     "enabled": true,
+     "points": [
+      {
+       "x": 3,
+       "y": 20
+      },
+      {
+       "x": 30,
+       "y": 15
+      },
+      {
+       "x": 30,
+       "y": 85
+      },
+      {
+       "x": 3,
+       "y": 80
+      }
+     ]
+    },
+    {
+     "id": "caae0bb2-bb7d-4363-adec-ce259917c7f8",
+     "type": "projection",
+     "name": "Center",
+     "mediaId": "3942cb76-d162-4eef-a256-39be6f30cd42",
+     "mediaName": "Kaleido of plasma",
+     "enabled": true,
+     "points": [
+      {
+       "x": 31,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 15
+      },
+      {
+       "x": 69,
+       "y": 85
+      },
+      {
+       "x": 31,
+       "y": 85
+      }
+     ]
+    },
+    {
+     "id": "4c277c11-8c07-4d02-9be0-d4e1647a7284",
+     "type": "projection",
+     "name": "Right",
+     "mediaId": "b195dda7-76d9-48e4-aad3-6d1584c50935",
+     "mediaName": "Lasers",
+     "enabled": true,
+     "points": [
+      {
+       "x": 70,
+       "y": 15
+      },
+      {
+       "x": 97,
+       "y": 20
+      },
+      {
+       "x": 97,
+       "y": 80
+      },
+      {
+       "x": 70,
+       "y": 85
+      }
+     ]
+    }
+   ],
+   "generators": {
+    "Plasma": {
+     "params": {
+      "speed": 0.9,
+      "scale": 1.3,
+      "hue": 200
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "scale",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": null
+    },
+    "Perlin": {
+     "params": {
+      "speed": 0.6,
+      "scale": 1,
+      "hue": 30
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Lasers": {
+     "params": {
+      "speed": 1.2,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [
+      {
+       "signal": "high",
+       "param": "scale",
+       "amount": 0.6
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Hexagons": {
+     "params": {
+      "speed": 1,
+      "scale": 1.5,
+      "hue": 160
+     },
+     "mods": [
+      {
+       "signal": "mid",
+       "param": "speed",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Triangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1.2,
+      "hue": 300
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Circles": {
+     "params": {
+      "speed": 0.8,
+      "scale": 1,
+      "hue": 90
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Rectangles": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 45
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Stripes": {
+     "params": {
+      "speed": 0.7,
+      "scale": 1,
+      "hue": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": null
+    },
+    "Motion cut": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 280,
+      "learn": 0.02,
+      "threshold": 0.16,
+      "soft": 0.08,
+      "hold": 0.95,
+      "ghost": 0,
+      "tint": 0.4,
+      "reset": 0
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Alien skin": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 120,
+      "feed": 0.03,
+      "kill": 0.057,
+      "seed": 0.9,
+      "wiggle": 0.015,
+      "wfreq": 9,
+      "glow": 0.4,
+      "reset": 0
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "feed",
+       "amount": 0.3
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Motion cut"
+    },
+    "Tunnel": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 200,
+      "decay": 0.95,
+      "zoom": 1.012,
+      "warp": 0.005,
+      "rot": 0.005,
+      "sym": 6,
+      "hueShift": 0.04,
+      "edge": 0.4
+     },
+     "mods": [
+      {
+       "signal": "motion",
+       "param": "zoom",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": true,
+     "sourceName": "Motion cut"
+    },
+    "Kaleido of plasma": {
+     "params": {
+      "speed": 1,
+      "scale": 1,
+      "hue": 0,
+      "decay": 0,
+      "zoom": 1.005,
+      "warp": 0.005,
+      "rot": 0.01,
+      "sym": 8,
+      "hueShift": 0.03,
+      "edge": 0
+     },
+     "mods": [
+      {
+       "signal": "bass",
+       "param": "sym",
+       "amount": 0.5
+      }
+     ],
+     "beatHue": false,
+     "sourceName": "Plasma"
+    },
+    "Neon edges": {
+     "params": {
+      "mode": 1,
+      "amount": 0.6,
+      "scale": 1,
+      "hue": 200,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Posterize": {
+     "params": {
+      "mode": 2,
+      "amount": 0.5,
+      "scale": 1,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Webcam"
+    },
+    "Pixelate": {
+     "params": {
+      "mode": 4,
+      "amount": 0.5,
+      "scale": 1.5,
+      "hue": 0,
+      "speed": 1
+     },
+     "mods": [],
+     "beatHue": false,
+     "sourceName": "Remote mp4 (flower)"
+    }
+   }
+  }
+ ],
+ "activeSceneId": "32753e99-46fd-44e6-950e-0dcf85a79028",
+ "midi": {
+  "ccMaps": [
+   {
+    "cc": 1,
+    "channel": 0,
+    "target": "gen:Plasma:speed",
+    "min": 0,
+    "max": 4
+   },
+   {
+    "cc": 2,
+    "channel": 0,
+    "target": "gen:Tunnel:zoom",
+    "min": 0.95,
+    "max": 1.05
+   },
+   {
+    "cc": 3,
+    "channel": 0,
+    "target": "gen:Alien skin:wiggle",
+    "min": 0,
+    "max": 0.06
+   },
+   {
+    "cc": 7,
+    "channel": 0,
+    "target": "phys:gravity",
+    "min": 0,
+    "max": 2
+   }
+  ]
+ },
+ "settings": {
+  "pcToScene": true,
+  "bumpKey": " ",
+  "quality": "med"
+ },
+ "title": "Kitchen Sink"
+}
