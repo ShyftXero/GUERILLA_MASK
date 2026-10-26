@@ -212,6 +212,7 @@
         #domLayers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
         #domLayers iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; background: #000; }
         .thumb.youtube .kind { color: #ff6b6b; }
+        .thumb.stream .kind { color: #fbbf24; }
         #svgOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #svgOverlay.hidden { display: none; }
         #stageTools { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 100; transition: opacity 0.3s; }
@@ -821,6 +822,7 @@
                 }
                 if (m.kind === 'youtube' && m.videoId) { app.mediaLibrary.push(createYouTubeMedia(m.videoId, m.id, m.name)); return; }
                 if (m.remote && m.url && m.kind === 'video') { app.mediaLibrary.push(createRemoteVideoMedia(m.url, m.id, m.name)); return; }
+                if (m.remote && m.url && m.kind === 'stream') { app.mediaLibrary.push(createMjpegMedia(m.url, m.id, m.name)); return; }
                 const stub = makeMediaStub(m);
                 app.mediaLibrary.push(stub);
                 const filename = m.filename || m.name;
@@ -1979,11 +1981,96 @@
             video.addEventListener('error', () => {
                 // Retry without CORS: still drawable, just not usable as an effect source.
                 if (video.crossOrigin !== null) { video.crossOrigin = null; video.src = url; video.load(); return; }
+                // <video> refused it: maybe it is an MJPEG stream with an unguessable URL. Try it as one.
+                if (!media._triedMjpeg && app.mediaLibrary.includes(media)) {
+                    media._triedMjpeg = true;
+                    try { video.pause(); video.src = ''; } catch (e) {}
+                    Object.assign(media, { kind: 'stream', type: 'stream', element: null, width: 0, height: 0, _cors: true, _tries: 0, _lastSig: null, _still: 0 });
+                    mjpegConnect(media); updateMediaList();
+                    return;
+                }
                 media.needsRelink = true; updateMediaList();
                 showHUD(`Could not load video: ${label}`);
             });
             video.play().catch(() => {});
             return media;
+        }
+
+        // MJPEG stream (multipart/x-mixed-replace): an <img> that keeps receiving JPEG frames, like an Icecast
+        // radio stream but for pictures. Comes straight from IP cams, ESP32-CAM, phones (IP Webcam), ustreamer,
+        // mjpg-streamer, VLC, ffmpeg. No library, no handshake: the browser decodes frames as they arrive.
+        // Drawn like a still image every frame, so it animates for free. Effects can read it only if the
+        // server sends CORS headers (ustreamer --allow-origin=*); otherwise it still projects fine.
+        const MJPEG_HINT = /\.(mjpg|mjpeg)(\?|#|$)|[?&]action=stream|#mjpeg$|\/stream(\?|#|$)|:8080\/video(\?|#|$)|\/videostream\.cgi|\/mjpg\//i;
+        function looksLikeMjpeg(url) { return MJPEG_HINT.test(url); }
+
+        function createMjpegMedia(url, id = null, name = null) {
+            const label = name || (() => { try { const u = new URL(url); return `${u.hostname}${u.pathname.length > 1 ? u.pathname : ''}`; } catch (e) { return url; } })();
+            const media = { id: id || uuid(), name: label, type: 'stream', kind: 'stream', url, element: null, width: 0, height: 0, filename: label, needsRelink: false, remote: true, _cors: true, _tries: 0, _lastSig: null, _still: 0 };
+            mjpegConnect(media);
+            return media;
+        }
+
+        // (Re)open the stream into a fresh <img>; swap it in on first frame so a reconnect never flashes black.
+        function mjpegConnect(media) {
+            const url = media.url.replace(/#mjpeg$/i, '');
+            const img = new Image();
+            if (media._cors) img.crossOrigin = 'anonymous';
+            media._connecting = img;
+            media._still = 0;
+            const bust = url + (url.includes('?') ? '&' : '?') + '_gm=' + Date.now(); // defeat cache on reconnect
+            img.onload = () => {
+                if (media._connecting !== img) return;
+                media._connecting = null; media._tries = 0;
+                media.element = img; media.width = img.naturalWidth; media.height = img.naturalHeight; media.needsRelink = false;
+                media._cors = !mjpegTainted(media); // Chrome accepts a multipart stream without CORS headers but taints it
+                updateMediaList(); linkMediaToLayers();
+            };
+            img.onerror = () => {
+                if (media._connecting !== img) return;
+                media._connecting = null;
+                if (media._cors) { media._cors = false; mjpegConnect(media); return; } // host sends no CORS: still drawable, not effect-readable
+                media._tries++;
+                if (!media.element) { media.needsRelink = true; updateMediaList(); }
+                if (media._tries <= 60) media._retry = setTimeout(() => mjpegConnect(media), Math.min(10000, 1000 * media._tries));
+                else showHUD(`Stream ${media.name}: gave up. Fix the URL and press Reconnect.`);
+            };
+            img.src = bust;
+        }
+
+        function mjpegSampler(media) {
+            if (!media._sampler) { media._sampler = document.createElement('canvas'); media._sampler.width = 8; media._sampler.height = 8; }
+            return media._sampler.getContext('2d', { willReadFrequently: true });
+        }
+        function mjpegTainted(media) {
+            try { const c = mjpegSampler(media); c.drawImage(media.element, 0, 0, 8, 8); c.getImageData(0, 0, 1, 1); return false; } catch (e) { return true; }
+        }
+
+        function mjpegDisconnect(media) {
+            clearTimeout(media._retry);
+            if (media._connecting) { media._connecting.onload = media._connecting.onerror = null; media._connecting.src = ''; media._connecting = null; }
+            if (media.element) { media.element.src = ''; media.element = null; }
+        }
+
+        // Stall watchdog: a dead TCP connection leaves <img> frozen on the last frame with no event. Sample a
+        // tiny downscale every 0.5 s; if nothing changed for 8 s, reopen. A truly static scene just reconnects
+        // silently (no flash, see mjpegConnect).
+        let mjpegClock = 0;
+        function mjpegWatchdog(dt) {
+            mjpegClock += dt;
+            if (mjpegClock < 0.5) return;
+            const step = mjpegClock; mjpegClock = 0;
+            app.mediaLibrary.forEach(m => {
+                if (m.kind !== 'stream' || !m.element || m._connecting) return;
+                try {
+                    const c = mjpegSampler(m);
+                    c.drawImage(m.element, 0, 0, 8, 8);
+                    const d = c.getImageData(0, 0, 8, 8).data; let sig = 0;
+                    for (let i = 0; i < d.length; i += 4) sig = (sig * 31 + d[i] * 3 + d[i + 1] * 5 + d[i + 2] * 7) | 0;
+                    if (sig === m._lastSig) m._still += step; else { m._still = 0; m._lastSig = sig; }
+                } catch (e) { m._still += step; } // tainted (no CORS): cannot sample, fall back to a plain timer
+                if (m._still > 8) { m._still = 0; mjpegConnect(m); }
+            });
         }
 
         // Swap the URL behind an existing URL item. Same id, so every layer, scene, effect source, and MIDI
@@ -1995,10 +2082,15 @@
             if (!yt && !/^https?:\/\//i.test(url)) { showHUD('Not a URL'); return false; }
             stopMediaResources(media);
             media._thumbDrawn = false;
+            if (media.kind === 'stream') mjpegDisconnect(media);
             if (yt) {
                 media.kind = 'youtube'; media.type = 'youtube'; media.videoId = yt;
                 media.url = `https://www.youtube.com/watch?v=${yt}`;
                 media.element = null; media.width = 16; media.height = 9; media.needsRelink = false; media.remote = true;
+            } else if (looksLikeMjpeg(url)) {
+                delete media.videoId;
+                Object.assign(media, { kind: 'stream', type: 'stream', url, element: null, width: 0, height: 0, needsRelink: false, remote: true, _cors: true, _tries: 0, _lastSig: null, _still: 0 });
+                mjpegConnect(media);
             } else {
                 const fresh = createRemoteVideoMedia(url, media.id, media.name);
                 delete media.videoId;
@@ -2010,14 +2102,18 @@
         }
 
         async function addUrlMedia() {
-            const url = prompt('YouTube link, or a direct video URL (mp4 / webm):');
+            const url = prompt('YouTube link, direct video URL (mp4 / webm), or an MJPEG stream (http://phone:8080/video, http://pi:8080/stream, ...). Add #mjpeg to force stream mode.');
             if (!url || !url.trim()) return;
             const yt = parseYouTubeId(url);
             let media;
             if (yt && location.protocol === 'file:') {
                 showHUD('YouTube refuses to play from a file:// page (error 153: no referrer). Run ./serve.sh and open http://localhost:8000/ instead.');
             }
+            if (!yt && location.protocol === 'https:' && /^http:\/\//i.test(url.trim())) {
+                showHUD('This page is https, so the browser blocks an http:// stream. Open index.html from disk or run ./serve.sh.');
+            }
             if (yt) media = createYouTubeMedia(yt);
+            else if (looksLikeMjpeg(url.trim())) media = createMjpegMedia(url.trim());
             else if (/^https?:\/\//i.test(url.trim())) media = createRemoteVideoMedia(url.trim());
             else { showHUD('Not a URL'); return; }
             upsertMedia(media);
@@ -2287,6 +2383,7 @@
             if (media._animator && media._animator.stop) { try { media._animator.stop(); } catch (e) {} }
             if (media._url) { try { URL.revokeObjectURL(media._url); } catch (e) {} }
             if (media.element && media.element.tagName === 'VIDEO') { try { media.element.pause(); media.element.src = ''; } catch (e) {} }
+            if (media.kind === 'stream') mjpegDisconnect(media);
         }
 
         function linkGeneratorSources() {
@@ -4509,6 +4606,14 @@
                 uin.onchange = () => { if (!updateUrlMedia(media, uin.value)) uin.value = media.url || ''; };
                 ur.appendChild(uin); container.appendChild(ur);
                 if (media.kind === 'youtube') container.appendChild(el('div', 'notice', (location.protocol === 'file:' ? '⚠ Opened from disk: YouTube shows error 153 here. Run ./serve.sh and open http://localhost:8000/. ' : '') + 'Embedded player warped over the canvas. Masks, physics, and effects cannot read it. Needs internet.'));
+                if (media.kind === 'stream') {
+                    const live = !!media.element && !media._connecting;
+                    const kv = el('div', 'kv'); kv.appendChild(el('span', null, 'stream'));
+                    kv.appendChild(el('b', null, live ? `${media.width}×${media.height} · ${media._cors ? 'effects OK' : 'no CORS: effects cannot read it'}` : (media._connecting ? `connecting…${media._tries ? ` (try ${media._tries + 1})` : ''}` : 'offline')));
+                    container.appendChild(kv);
+                    const rb = el('button', 'small', '↻ Reconnect'); rb.style.marginTop = '6px'; rb.onclick = () => { media._tries = 0; mjpegConnect(media); renderInspector(); }; container.appendChild(rb);
+                    container.appendChild(el('div', 'notice', 'MJPEG over HTTP, like a radio stream for pictures. Reconnects by itself when it stalls. Senders and setup: see streaming.md in the repo.'));
+                }
             }
             if (media.kind === 'camera') {
                 const live = cameraIsLive(media);
@@ -4838,6 +4943,7 @@
             updateSignalMeters();
             tickGenerators(dt);
             refreshThumbs(dt);
+            mjpegWatchdog(dt);
             app.layers.forEach(layer => {
                 if (layer.enabled && layer.type === 'physics') stepPhysics(layer, dt, w, h);
             });

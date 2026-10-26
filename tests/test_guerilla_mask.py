@@ -33,15 +33,51 @@ def check(name, cond, detail=""):
         FAILS.append(name)
 
 
+def _png(w, h, rgb):
+    """Minimal solid-colour PNG (stdlib only). Multipart image parts may be any image type Chrome decodes."""
+    import struct, zlib
+    raw = b"".join(b"\x00" + bytes(rgb) * w for _ in range(h))
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+
+
+MJPEG_FRAMES = [_png(64, 48, (255, 0, 0)), _png(64, 48, (0, 0, 255))]
+
+
 class Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
+    def do_GET(self):
+        # /test.mjpg[?cors=1][&frames=N]: an MJPEG-style multipart/x-mixed-replace stream, alternating red/blue.
+        if self.path.startswith("/test.mjpg"):
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            frames = int(q.get("frames", ["40"])[0])
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache")
+            if q.get("cors"):
+                self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            try:
+                for i in range(frames):
+                    f = MJPEG_FRAMES[i % 2]
+                    self.wfile.write(b"--frame\r\nContent-Type: image/png\r\nContent-Length: %d\r\n\r\n" % len(f) + f + b"\r\n")
+                    self.wfile.flush()
+                    time.sleep(0.1)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+        return super().do_GET()
 
-def serve():
+
+def serve(port=PORT):
     os.chdir(ROOT)
-    socketserver.TCPServer.allow_reuse_address = True
-    httpd = socketserver.TCPServer(("127.0.0.1", PORT), Quiet)
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.daemon_threads = True
+    httpd = socketserver.ThreadingTCPServer(("127.0.0.1", port), Quiet)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd
 
@@ -544,6 +580,60 @@ JS_SCALE = """
 }
 """
 
+JS_STREAM = """
+async (port) => { // port is a SECOND server: cross-origin, so CORS headers matter like in the field
+  const out = {};
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  // URL heuristics
+  out.hint = looksLikeMjpeg('http://phone:8080/video') && looksLikeMjpeg('http://pi:8080/?action=stream') && looksLikeMjpeg('http://cam/x.mjpg') && looksLikeMjpeg('http://x/whatever#mjpeg') && !looksLikeMjpeg('http://x/clip.mp4');
+  // live stream with CORS -> readable by effects
+  const m = createMjpegMedia(`http://127.0.0.1:${port}/test.mjpg?cors=1&frames=400`, null, 'cam-cors');
+  upsertMedia(m); updateMediaList();
+  for (let i = 0; i < 40 && !m.element; i++) await sleep(100);
+  out.live = !!m.element && m.width === 64 && m.height === 48 && m.kind === 'stream' && m._cors === true;
+  // frames change: the watchdog signature must move
+  const sigs = new Set(); for (let i = 0; i < 12; i++) { await sleep(250); sigs.add(m._lastSig); }
+  sigs.delete(null); out.animates = sigs.size >= 2;
+  // on a quad: red or blue lands on the canvas
+  const L = app.layers.find(l => l.type === 'projection' && l.points.length === 4);
+  const keep = L.mediaId, keepName = L.mediaName; L.mediaId = m.id; L.mediaName = m.name;
+  { const cc = getLayerCenter(L); moveLayerBy(L, 50 - cc.x, 50 - cc.y); }
+  await sleep(300);
+  const px = app.canvas.ctx.getImageData(Math.round(app.canvas.logicalWidth / 2), Math.round(app.canvas.logicalHeight / 2), 1, 1).data;
+  out.drawn = (px[0] > 200 && px[2] < 60) || (px[2] > 200 && px[0] < 60);
+  // effect can read it (CORS): a Filter in invert mode over red/blue gives cyan/yellow, i.e. green channel high
+  addEffectToLayer(L.id, 'filter');
+  const fx = app.mediaLibrary.find(x => x.id === L.mediaId); fx.params.mode = 5; fx.params.amount = 1; // full invert
+  await sleep(500);
+  const p2 = app.canvas.ctx.getImageData(Math.round(app.canvas.logicalWidth / 2), Math.round(app.canvas.logicalHeight / 2), 1, 1).data;
+  out.effect = p2[1] > 150;
+  removeStage((mm) => { L.mediaId = mm ? mm.id : null; }, fx, fx.id);
+  // stream that ends -> watchdog reconnects (frames=12 means ~1.2 s of video, then a frozen frame)
+  const m2 = createMjpegMedia(`http://127.0.0.1:${port}/test.mjpg?frames=12`, null, 'cam-short');
+  upsertMedia(m2);
+  for (let i = 0; i < 40 && !m2.element; i++) await sleep(100);
+  const first = m2.element;
+  out.noCorsFallback = m2._cors === false && !!first; // no header -> crossOrigin retry path
+  for (let i = 0; i < 120 && m2.element === first; i++) await sleep(100);
+  out.reconnected = m2.element !== first && !!m2.element;
+  // serialize / restore keeps kind + url
+  const snap = await buildProjectSnapshot(false);
+  const e = snap.media.find(x => x.id === m.id);
+  out.serialized = e && e.kind === 'stream' && e.remote === true && e.url === m.url && !e.data;
+  // bad video URL falls back to a stream attempt
+  const v = createRemoteVideoMedia(`http://127.0.0.1:${port}/test.mjpg?frames=50`, null, 'cam-as-video');
+  upsertMedia(v);
+  for (let i = 0; i < 60 && v.kind !== 'stream'; i++) await sleep(100);
+  for (let i = 0; i < 40 && !v.element; i++) await sleep(100);
+  out.videoFallback = v.kind === 'stream' && !!v.element;
+  // cleanup
+  L.mediaId = keep; L.mediaName = keepName;
+  [m, m2, v].forEach(x => { stopMediaResources(x); app.mediaLibrary = app.mediaLibrary.filter(y => y.id !== x.id); });
+  updateMediaList();
+  return out;
+}
+"""
+
 JS_AUTOSAVE_RESTORE = """
 async () => {
   // Autosave path: snapshot has no embedded data; media must come back from IDB cache.
@@ -562,6 +652,7 @@ async () => {
 
 def main():
     httpd = serve()
+    httpd2 = serve(PORT + 1)  # cross-origin host for stream tests
     url = f"http://127.0.0.1:{PORT}/index.html"
     errors = []
     with sync_playwright() as p:
@@ -571,7 +662,7 @@ def main():
         ctx = browser.new_context(viewport={"width": 1400, "height": 900})
         page = ctx.new_page()
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "404" not in m.text and "example.com" not in m.text and "ERR_FAILED" not in m.text else None)
+        page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "404" not in m.text and "example.com" not in m.text and "ERR_FAILED" not in m.text and "blocked by CORS policy" not in m.text else None)  # CORS probe on streams is intentional
         page.goto(url)
         page.wait_for_timeout(800)
         page.evaluate("async () => { const db = await idbOpen(); for (const s of ['kv','files']) await new Promise(r => { const tx = db.transaction(s,'readwrite'); tx.objectStore(s).clear(); tx.oncomplete = r; }); }")
@@ -623,6 +714,9 @@ def main():
 
         sc = page.evaluate(JS_SCALE)
         check("Scale: parse/format lengths, measure ruler, 8 ft tall quad, nudge, ruler realign", all(v is True for v in sc.values()), json.dumps(sc))
+
+        st = page.evaluate(JS_STREAM, PORT + 1)
+        check("MJPEG stream: detect, play, draw, feed effects (CORS), no-CORS fallback, stall reconnect, serialize, video fallback", all(v is True for v in st.values()), json.dumps(st))
 
         a = page.evaluate(JS_AUTOSAVE_RESTORE)
         check("C3 autosave restores gif/image from cache without embedding", (not a["hasEmbeddedData"]) and a["imgFromCache"] and a["gifFromCache"], json.dumps(a))
