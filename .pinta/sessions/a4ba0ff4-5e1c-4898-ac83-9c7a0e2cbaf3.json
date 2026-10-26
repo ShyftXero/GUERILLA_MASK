@@ -1,0 +1,94 @@
+{
+  "id": "a4ba0ff4-5e1c-4898-ac83-9c7a0e2cbaf3",
+  "url": "https://shyftxero.github.io/GUERILLA_MASK/",
+  "projectRoot": "/home/shyft/Dropbox/code/GUERILLA_MASK",
+  "startedAt": 1793040693572,
+  "annotations": [
+    {
+      "id": "ann-bed37db6-ae4c-47dd-91f3-1cdf1bd90afb",
+      "createdAt": 1793040753369,
+      "kind": "select",
+      "strokes": [],
+      "color": "#FF3D6E",
+      "comment": "Idon'tknowifthisisstillneeded.",
+      "targets": [
+        {
+          "selector": "#generatorSelect",
+          "outerHTML": "<select id=\"generatorSelect\" style=\"\"><option value=\"plasma\">Plasma</option><option value=\"perlin\">Perlin Noise</option><option value=\"lasers\">Lasers</option><option value=\"hexagons\">Hexagons</option><option value=\"triangles\">Triangles</option><option value=\"circles\">Circles</option><option value=\"rectangles\">Rectangles</option><option value=\"stripes\">Stripes</option></select>",
+          "computedStyles": {
+            "color": "rgb(230, 231, 234)",
+            "background-color": "rgb(30, 32, 38)",
+            "background-image": "none",
+            "font-family": "Arial",
+            "font-size": "11px",
+            "font-weight": "400",
+            "line-height": "normal",
+            "letter-spacing": "normal",
+            "padding": "4px 6px",
+            "margin": "0px",
+            "border": "1px solid rgb(42, 45, 53)",
+            "border-radius": "4px",
+            "box-shadow": "none",
+            "display": "block",
+            "width": "100%",
+            "height": "auto"
+          },
+          "nearbyText": [
+            "PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes",
+            "Library + URL+ Pattern PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes Drop images / GIFs / videos here, or click genPlasma 1×fxKaleidoscope 1×",
+            "Library + URL+ Pattern PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes Drop images / GIFs / videos here, or click genPlasma 1×fxKaleidoscope 1× Scenes + Scene Layers ✓ Done ▣Plasma 1"
+          ],
+          "boundingRect": {
+            "x": 0,
+            "y": 0,
+            "width": 0,
+            "height": 0
+          }
+        }
+      ],
+      "target": {
+        "selector": "#generatorSelect",
+        "outerHTML": "<select id=\"generatorSelect\" style=\"\"><option value=\"plasma\">Plasma</option><option value=\"perlin\">Perlin Noise</option><option value=\"lasers\">Lasers</option><option value=\"hexagons\">Hexagons</option><option value=\"triangles\">Triangles</option><option value=\"circles\">Circles</option><option value=\"rectangles\">Rectangles</option><option value=\"stripes\">Stripes</option></select>",
+        "computedStyles": {
+          "color": "rgb(230, 231, 234)",
+          "background-color": "rgb(30, 32, 38)",
+          "background-image": "none",
+          "font-family": "Arial",
+          "font-size": "11px",
+          "font-weight": "400",
+          "line-height": "normal",
+          "letter-spacing": "normal",
+          "padding": "4px 6px",
+          "margin": "0px",
+          "border": "1px solid rgb(42, 45, 53)",
+          "border-radius": "4px",
+          "box-shadow": "none",
+          "display": "block",
+          "width": "100%",
+          "height": "auto"
+        },
+        "nearbyText": [
+          "PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes",
+          "Library + URL+ Pattern PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes Drop images / GIFs / videos here, or click genPlasma 1×fxKaleidoscope 1×",
+          "Library + URL+ Pattern PlasmaPerlin NoiseLasersHexagonsTrianglesCirclesRectanglesStripes Drop images / GIFs / videos here, or click genPlasma 1×fxKaleidoscope 1× Scenes + Scene Layers ✓ Done ▣Plasma 1"
+        ],
+        "boundingRect": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      "viewport": {
+        "scrollY": 0,
+        "width": 2174,
+        "height": 1424
+      },
+      "url": "https://shyftxero.github.io/GUERILLA_MASK/"
+    }
+  ],
+  "status": "submitted",
+  "producer": "extension",
+  "submittedAt": 1793040759957,
+  "autoApply": false
+}

@@ -634,6 +634,50 @@ async (port) => { // port is a SECOND server: cross-origin, so CORS headers matt
 }
 """
 
+JS_UNDO = """
+() => {
+  const out = {};
+  const L = app.layers.find(l => l.type === 'projection' && l.points.length === 4);
+  app.selectedLayerId = L.id; app.selectedObjectId = null;
+  const p0 = JSON.stringify(L.points);
+  // move via nudge, undo brings points back, redo re-applies
+  app.scale.nudgeIn = 12; nudgeSelected(1, 0, 1); nudgeSelected(1, 0, 1); // coalesced into one step
+  const p1 = JSON.stringify(L.points);
+  undo();
+  const Lb = app.layers.find(l => l.id === L.id);
+  out.undoMove = JSON.stringify(Lb.points) === p0 && p1 !== p0;
+  redo();
+  out.redoMove = JSON.stringify(app.layers.find(l => l.id === L.id).points) === p1;
+  // drag start pushes; a simulated point drag then undo
+  const rect = app.canvas.element.getBoundingClientRect();
+  startDragPoint({ stopPropagation(){}, preventDefault(){}, clientX: rect.left, clientY: rect.top }, L.id, 0);
+  onMouseMove({ clientX: rect.left + rect.width * 0.5, clientY: rect.top + rect.height * 0.5 }); onMouseUp();
+  const moved = JSON.stringify(app.layers.find(l => l.id === L.id).points) !== p1;
+  undo();
+  out.undoPoint = moved && JSON.stringify(app.layers.find(l => l.id === L.id).points) === p1;
+  // reorder + rotate undo
+  const order0 = app.layers.map(l => l.id).join();
+  moveLayerUp(app.layers[app.layers.length - 1].id); rotateLayer90(L.id);
+  undo(); undo();
+  out.undoReorderRotate = app.layers.map(l => l.id).join() === order0 && JSON.stringify(app.layers.find(l => l.id === L.id).points) === p1;
+  // delete object then undo
+  const P = app.layers.find(l => l.type === 'physics'); const n = P.physics.objects.length;
+  const oid = P.physics.objects[0].id;
+  P.physics.objects = P.physics.objects.filter(o => o.id !== oid); // deleteObject is async+confirm; emulate its pushUndo path
+  pushUndo('delete object'); P.physics.objects.push({ id: 'junk', kind: 'shape', shape: 'circle', x: 1, y: 1, r: 2, rot: 0, rotV: 0, vx: 0, vy: 0, color: '#fff' });
+  undo();
+  out.undoObject = app.layers.find(l => l.type === 'physics').physics.objects.length === n - 1 && !app.layers.find(l => l.type === 'physics').physics.objects.some(o => o.id === 'junk');
+  // stack cleared on scene recall and on snapshot restore: nothing stale comes back
+  pushUndo('x'); recallScene(app.scenes[0].id);
+  out.clearedOnScene = undoStack.length === 0 && redoStack.length === 0;
+  // depth cap
+  for (let i = 0; i < 25; i++) pushUndo('n' + i);
+  out.depth = undoStack.length === TUNING.undoDepth;
+  clearUndo();
+  return out;
+}
+"""
+
 JS_AUTOSAVE_RESTORE = """
 async () => {
   // Autosave path: snapshot has no embedded data; media must come back from IDB cache.
@@ -712,6 +756,9 @@ def main():
         q = mc["quality"]
         check("Quality switch resizes effects live (same id) and camera track", q["sameId"] and q["lowRes"] == 256 and q["back"] and q["settingsSaved"] and q["camW"] > 0, json.dumps(q))  # fake device ignores applyConstraints; real cams resize
 
+        un = page.evaluate(JS_UNDO)
+        check("Undo/redo: move, point drag, reorder, rotate, object, cleared on scene, depth", all(v is True for v in un.values()), json.dumps(un))
+
         sc = page.evaluate(JS_SCALE)
         check("Scale: parse/format lengths, measure ruler, 8 ft tall quad, nudge, ruler realign", all(v is True for v in sc.values()), json.dumps(sc))
 
@@ -731,6 +778,7 @@ def main():
               and r["sceneNote"] == 40 and r["cc"] == 1 and r["physObjs"] == 12 and not r["relinkModalVisible"] and r["pcToScene"],
               json.dumps(r))
         check("Scale survives Save/Load", page.evaluate("() => Math.abs(app.scale.wallWidthIn - 240) < 0.5 && !!app.scale.ruler && app.scale.rulerIn === 120"))
+        check("Undo stack cleared by Load", page.evaluate("() => undoStack.length === 0 && redoStack.length === 0"))
         page.screenshot(path=str(SHOTS / "after-load.png"))
 
         check("no page errors", not errors, json.dumps(errors[:5]))

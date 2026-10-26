@@ -854,6 +854,7 @@
 
         async function restoreFromSnapshot(snapshot, hudMessage = 'Recovered autosave') {
             if (!snapshot) return;
+            clearUndo();
 
             await restoreMediaFromSnapshot(snapshot.media || []);
 
@@ -3131,6 +3132,7 @@
             const layer = getSelectedPhysicsLayer(true);
             if (!physicsRoomFor(layer)) return;
             const o = makePhysicsObject(layer, { kind: 'shape', shape });
+            pushUndo('add object');
             layer.physics.objects.push(o);
             app.selectedObjectId = o.id;
             updateLayerList();
@@ -3142,6 +3144,7 @@
         function addMediaObject(media) {
             const layer = getSelectedPhysicsLayer(true);
             if (!physicsRoomFor(layer)) return;
+            pushUndo('add object');
             layer.physics.objects.push(makePhysicsObject(layer, {
                 kind: 'media',
                 mediaId: media.id,
@@ -3438,6 +3441,7 @@
             const scene = app.scenes.find(s => s.id === sceneId);
             if (!scene) return;
             if (app.activeSceneId && app.activeSceneId !== sceneId) syncActiveScene();
+            clearUndo(); // a scene is a different layer stack; undoing across it would mix two looks
             app.layers = scene.layers.map(deserializeLayer);
             Object.entries(scene.generators || {}).forEach(([name, g]) => {
                 const m = app.mediaLibrary.find(x => x.kind === 'generator' && x.name === name);
@@ -4033,6 +4037,7 @@
                 // Dropped inside the selected arena: make it a bouncing sprite instead.
                 if (!physicsRoomFor(sel)) return;
                 const obj = makePhysicsObject(sel, { kind: 'media', mediaId: media.id, mediaName: media.name, x: cx, y: cy, r: Math.max(sel.physics.size, 8), rotV: 0 });
+                pushUndo('drop sprite');
                 sel.physics.objects.push(obj);
                 app.selectedObjectId = obj.id;
                 if (app.addingPoints && sel.points.length < 3) { sel.points = []; app.addingPoints = false; }
@@ -4040,6 +4045,7 @@
                 showHUD(`${media.name} dropped into ${sel.name}`);
                 return;
             }
+            pushUndo('place media');
             app.layers.push(layer);
             app.selectedLayerId = layer.id;
             app.selectedMediaId = media.id;
@@ -4086,6 +4092,7 @@
             };
             if (layer.type === 'physics') layer.physics = PHYSICS_DEFAULTS();
             
+            pushUndo('add layer');
             app.layers.push(layer);
             app.selectedLayerId = layer.id;
             app.addingPoints = true;
@@ -4137,6 +4144,7 @@
                 duplicate.physics.objects.forEach(o => { o.id = uuid(); });
             }
             
+            pushUndo('duplicate layer');
             app.layers.push(duplicate);
             app.selectedLayerId = duplicate.id;
             updateLayerList();
@@ -4145,7 +4153,51 @@
             scheduleAutosave();
         }
 
-        const undoStack = [];
+        // ===== Undo / redo: snapshots of the whole layer stack =====
+        // Every edit (move, scale, rotate, point, reorder, delete, add, nudge, ruler realign) pushes the state
+        // from BEFORE the edit. Ctrl+Z restores it, Ctrl+Shift+Z / Ctrl+Y goes forward. Cleared on project
+        // load and scene recall so a stale stack can never resurrect a layer from another session.
+        const undoStack = [], redoStack = [];
+        let lastUndoLabel = null, lastUndoAt = 0;
+        function undoSnapshot() {
+            return { layers: app.layers.map(serializeLayer), selectedLayerId: app.selectedLayerId, selectedObjectId: app.selectedObjectId || null, ruler: app.scale.ruler ? app.scale.ruler.map(p => ({ ...p })) : null, wallWidthIn: app.scale.wallWidthIn };
+        }
+        // coalesceMs: repeated edits with the same label inside the window (arrow-key nudges) collapse into one step
+        function pushUndo(label, coalesceMs = 0) {
+            const now = performance.now();
+            if (coalesceMs && label === lastUndoLabel && now - lastUndoAt < coalesceMs) { lastUndoAt = now; return; }
+            undoStack.push({ label, snap: undoSnapshot() });
+            if (undoStack.length > TUNING.undoDepth) undoStack.shift();
+            redoStack.length = 0;
+            lastUndoLabel = label; lastUndoAt = now;
+        }
+        function clearUndo() { undoStack.length = 0; redoStack.length = 0; lastUndoLabel = null; }
+        function applyUndoSnapshot(snap) {
+            app.layers = snap.layers.map(deserializeLayer);
+            app.selectedLayerId = app.layers.some(l => l.id === snap.selectedLayerId) ? snap.selectedLayerId : (app.layers[0] ? app.layers[0].id : null);
+            app.selectedObjectId = snap.selectedObjectId;
+            app.scale.ruler = snap.ruler; if (snap.wallWidthIn > 0) app.scale.wallWidthIn = snap.wallWidthIn;
+            app.addingPoints = false; app.dragging.active = false;
+            relinkLayersByName();
+            updateLayerList(); updateOverlay(); renderInspector(); updateStageHint(); scheduleAutosave();
+        }
+        function undo() {
+            const entry = undoStack.pop();
+            if (!entry) { showHUD('Nothing to undo'); return; }
+            redoStack.push({ label: entry.label, snap: undoSnapshot() });
+            applyUndoSnapshot(entry.snap);
+            lastUndoLabel = null;
+            showHUD(`Undo ${entry.label}${undoStack.length ? ` (${undoStack.length} more)` : ''}`);
+        }
+        function redo() {
+            const entry = redoStack.pop();
+            if (!entry) { showHUD('Nothing to redo'); return; }
+            undoStack.push({ label: entry.label, snap: undoSnapshot() });
+            applyUndoSnapshot(entry.snap);
+            lastUndoLabel = null;
+            showHUD(`Redo ${entry.label}`);
+        }
+        const undoDelete = undo; // old name, kept for tests and habit
 
         async function deleteLayer(layerId, skipConfirm = false) {
             const index = app.layers.findIndex(l => l.id === layerId);
@@ -4155,8 +4207,7 @@
                 const what = layer.type === 'physics' ? `${layer.physics.objects.length} objects` : (layer.mediaName || `${layer.points.length} points`);
                 if (!await confirmAction({ title: `Delete ${layer.name}?`, message: `${layer.type} layer, ${what}. Ctrl+Z restores it this session.` })) return;
             }
-            undoStack.push({ layer: serializeLayer(layer), index });
-            if (undoStack.length > TUNING.undoDepth) undoStack.shift();
+            pushUndo(`delete ${layer.name}`);
             app.layers.splice(index, 1);
             if (app.selectedLayerId === layerId) {
                 app.selectedLayerId = app.layers.length > 0 ? app.layers[0].id : null;
@@ -4165,20 +4216,6 @@
             updateLayerList();
             updateOverlay();
             showHUD(`Deleted ${layer.name} (Ctrl+Z to undo)`);
-            scheduleAutosave();
-        }
-
-        function undoDelete() {
-            const entry = undoStack.pop();
-            if (!entry) { showHUD('Nothing to undo'); return; }
-            const layer = deserializeLayer(entry.layer);
-            if (app.layers.some(l => l.id === layer.id)) layer.id = uuid();
-            app.layers.splice(Math.min(entry.index, app.layers.length), 0, layer);
-            app.selectedLayerId = layer.id;
-            relinkLayersByName();
-            updateLayerList();
-            updateOverlay();
-            showHUD(`Restored ${layer.name}`);
             scheduleAutosave();
         }
 
@@ -4253,7 +4290,8 @@
             if (!layer || !layer.physics) return;
             const o = layer.physics.objects.find(x => x.id === objectId);
             if (!o) return;
-            if (!await confirmAction({ title: `Delete ${objectLabel(o)}?`, message: `Removes this object from ${layer.name}. No undo.` })) return;
+            if (!await confirmAction({ title: `Delete ${objectLabel(o)}?`, message: `Removes this object from ${layer.name}. Ctrl+Z restores it.` })) return;
+            pushUndo(`delete ${objectLabel(o)}`);
             layer.physics.objects = layer.physics.objects.filter(o => o.id !== objectId);
             if (app.selectedObjectId === objectId) app.selectedObjectId = null;
             updateLayerList(); updateOverlay(); scheduleAutosave();
@@ -4265,6 +4303,7 @@
             if (!o || !physicsRoomFor(layer)) return;
             const copy = { ...o, id: uuid(), x: Math.min(95, o.x + 3), y: Math.min(95, o.y + 3) };
             delete copy._held;
+            pushUndo('duplicate object');
             layer.physics.objects.push(copy);
             app.selectedObjectId = copy.id;
             updateLayerList(); updateOverlay(); scheduleAutosave();
@@ -4317,6 +4356,7 @@
             if (!fromId || fromId === targetId) return;
             const from = app.layers.find(l => l.id === fromId);
             if (!from) return;
+            pushUndo('reorder');
             app.layers = app.layers.filter(l => l.id !== fromId);
             let idx = app.layers.findIndex(l => l.id === targetId);
             if (idx < 0) { app.layers.push(from); } else { app.layers.splice(above ? idx + 1 : idx, 0, from); }
@@ -4327,6 +4367,7 @@
         function moveLayerUp(layerId) {
             const index = app.layers.findIndex(l => l.id === layerId);
             if (index > 0) {
+                pushUndo('reorder');
                 [app.layers[index], app.layers[index - 1]] = [app.layers[index - 1], app.layers[index]];
                 updateLayerList();
                 updateOverlay();
@@ -4338,6 +4379,7 @@
         function moveLayerDown(layerId) {
             const index = app.layers.findIndex(l => l.id === layerId);
             if (index < app.layers.length - 1) {
+                pushUndo('reorder');
                 [app.layers[index], app.layers[index + 1]] = [app.layers[index + 1], app.layers[index]];
                 updateLayerList();
                 updateOverlay();
@@ -4348,6 +4390,7 @@
         function rotateLayer90(layerId) {
             const layer = app.layers.find(l => l.id === layerId);
             if (!layer || layer.points.length === 0) return;
+            pushUndo('rotate 90°');
             
             // Calculate center point
             const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
@@ -5375,6 +5418,7 @@
         function startDragRuler(e, idx) {
             e.stopPropagation(); e.preventDefault();
             if (!app.scale.ruler) return;
+            pushUndo(app.scale.rulerMovesScene ? 'realign scene' : 'move ruler');
             app.dragging = { active: true, type: 'ruler', pointIndex: idx, layerId: null, startRuler: app.scale.ruler.map(p => ({ ...p })) };
         }
         function moveRulerEnd(idx, x, y) {
@@ -5404,6 +5448,7 @@
         // If the result spills off the stage it is slid back inside (size kept) before clamping, so "8 ft tall"
         // on a quad near the top edge grows downward instead of being cut.
         function scaleLayerAbout(layer, sx, sy) {
+            pushUndo(`resize ${layer.name}`);
             const c = getLayerCenter(layer);
             let pts = layer.points.map(p => ({ x: c.x + (p.x - c.x) * sx, y: c.y + (p.y - c.y) * sy }));
             const b = getLayerBounds({ points: pts });
@@ -5430,6 +5475,7 @@
         }
         function setLayerCenterIn(layer, axis, inches) {
             if (!scaleReady()) return;
+            pushUndo(`move ${layer.name}`);
             const c = getLayerCenter(layer);
             if (axis === 'x') moveLayerBy(layer, inToPctX(inches) - c.x, 0); else moveLayerBy(layer, 0, inToPctY(inches) - c.y);
             renderInspector();
@@ -5442,6 +5488,7 @@
             let px, py;
             if (scaleReady()) { const s = app.scale.nudgeIn * (mult || 1); px = inToPctX(s); py = inToPctY(s); }
             else { px = 0.5 * (mult || 1); py = 0.5 * (mult || 1); }
+            pushUndo(`nudge ${obj ? objectLabel(obj) : layer.name}`, 1200);
             if (obj) { obj.x = clampPct(obj.x + dx * px); obj.y = clampPct(obj.y + dy * py); obj.vx = 0; obj.vy = 0; scheduleAutosave(); return true; }
             moveLayerBy(layer, dx * px, dy * py);
             renderInspector();
@@ -5475,7 +5522,7 @@
             pad.appendChild(el('span', 'mid')); pad.appendChild(mk('▲', 0, -1, 'Up')); pad.appendChild(el('span', 'mid'));
             pad.appendChild(mk('◀', -1, 0, 'Left')); pad.appendChild(mk('•', 0, 0, 'Center')); pad.appendChild(mk('▶', 1, 0, 'Right'));
             pad.appendChild(el('span', 'mid')); pad.appendChild(mk('▼', 0, 1, 'Down')); pad.appendChild(el('span', 'mid'));
-            pad.children[4].title = 'Center on the stage'; pad.children[4].onclick = () => { const cc = getLayerCenter(layer); moveLayerBy(layer, 50 - cc.x, 50 - cc.y); renderInspector(); };
+            pad.children[4].title = 'Center on the stage'; pad.children[4].onclick = () => { pushUndo(`center ${layer.name}`); const cc = getLayerCenter(layer); moveLayerBy(layer, 50 - cc.x, 50 - cc.y); renderInspector(); };
             wrap.appendChild(pad);
             sec.appendChild(wrap);
         }
@@ -5705,6 +5752,7 @@
                 o._held = { px, py, vx: 0, vy: 0 };
                 return;
             }
+            pushUndo(type === 'obj-scale' ? 'scale object' : 'rotate object');
             app.dragging = { active: true, type, layerId, objectId, startR: o.r, startRot: o.rot };
         }
 
@@ -5728,6 +5776,7 @@
             const y = pxToPct(e.clientY - rect.top, rect.height);
 
             if (layer.type === 'projection' && layer.points.length < 4) {
+                pushUndo('place corner');
                 layer.points.push({ x, y });
                 if (layer.points.length === 4) {
                     app.addingPoints = false;
@@ -5738,6 +5787,7 @@
                 updateLayerList();
                 scheduleAutosave();
             } else if (layer.type === 'mask' || layer.type === 'physics') {
+                pushUndo('place point');
                 layer.points.push({ x, y });
                 updateOverlay();
                 updateLayerList();
@@ -5749,6 +5799,7 @@
         function startDragPoint(e, layerId, pointIndex) {
             e.stopPropagation();
             e.preventDefault();
+            pushUndo('move point');
             app.dragging = {
                 active: true,
                 type: 'point',
@@ -5797,6 +5848,7 @@
             
             const centerX = layer.points.reduce((sum, p) => sum + p.x, 0) / layer.points.length;
             const centerY = layer.points.reduce((sum, p) => sum + p.y, 0) / layer.points.length;
+            pushUndo(`move ${layer.name}`);
             
             app.dragging = {
                 active: true,
@@ -5823,6 +5875,7 @@
             const dx = mouseX - center.x;
             const dy = mouseY - center.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
+            pushUndo(`scale ${layer.name}`);
 
             app.dragging = {
                 active: true,
@@ -5849,6 +5902,7 @@
             const mouseY = pxToPct(e.clientY - rect.top, rect.height);
             const center = getLayerCenter(layer);
             const startAngle = Math.atan2(mouseY - center.y, mouseX - center.x);
+            pushUndo(`rotate ${layer.name}`);
 
             app.dragging = {
                 active: true,
@@ -6357,7 +6411,10 @@
                     else deleteLayer(app.selectedLayerId);
                 } else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
-                    undoDelete();
+                    if (e.shiftKey) redo(); else undo();
+                } else if ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    redo();
                 } else if (e.key === 'b' || e.key === 'B') {
                     toggleBlackout();
                 } else if (e.key === 'c' || e.key === 'C') {

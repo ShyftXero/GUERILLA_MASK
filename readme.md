@@ -154,7 +154,8 @@ Any laptop from the last decade with a modern browser. A common 720p/1080p proje
 - I: Toggle the inspector panel
 - Enter: Finish placing points (same as Done)
 - 1–9: Recall scene by number
-- Delete: Delete active layer. Ctrl+Z (Cmd+Z) restores it, up to 10 deep.
+- Delete: Delete active layer or object.
+- Ctrl+Z / Ctrl+Shift+Z (Cmd on Mac): undo / redo any layer edit: move, scale, rotate, point, reorder, delete, add, nudge, ruler realign. 10 deep. Cleared on load and scene recall.
 - Arrow keys: Nudge the selected layer or physics object by the Scale nudge step (Shift ×10). Without calibration, 0.5% of the stage.
 - Space: Bump all physics objects (configurable in the physics panel)
 - Esc: Cancel point placement or a MIDI learn
