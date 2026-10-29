@@ -2142,6 +2142,244 @@
             return `matrix3d(${a * sx},${d * sx},0,${g * sx}, ${b * sy},${e * sy},0,${hh * sy}, 0,0,1,0, ${c},${f},0,1)`;
         }
 
+        /* =====================================================================
+         * STRUCTURED LIGHT  — webcam + projector auto-mapping
+         *   See GLOSSARY.md and docs/adr/0001, 0002.
+         *   Math core: a general camera<->projector homography (H_cp). Everything
+         *   downstream (difference masking, camera underlay, pro-mode faces)
+         *   reads from it. Pure functions here are unit-tested in
+         *   tests/test_structured_light.py.
+         * ===================================================================== */
+
+        // Solve the 3x3 homography (row-major, 9 numbers, h8 normalised to 1) that
+        // maps the four src points to the four dst points. Returns null if the
+        // configuration is degenerate (e.g. collinear points -> singular system).
+        function slSolveHomography(src, dst) {
+            if (!src || !dst || src.length < 4 || dst.length < 4) return null;
+            // Build the 8x8 linear system A h = b for h0..h7 (h8 = 1).
+            const A = [], b = [];
+            for (let i = 0; i < 4; i++) {
+                const sx = src[i].x, sy = src[i].y, dx = dst[i].x, dy = dst[i].y;
+                A.push([sx, sy, 1, 0, 0, 0, -sx * dx, -sy * dx]); b.push(dx);
+                A.push([0, 0, 0, sx, sy, 1, -sx * dy, -sy * dy]); b.push(dy);
+            }
+            const h = slSolveLinear(A, b);
+            if (!h) return null;
+            return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+        }
+
+        // Gaussian elimination with partial pivoting. Returns the solution vector,
+        // or null if the matrix is singular (a pivot collapses to ~0).
+        function slSolveLinear(A, b) {
+            const n = b.length;
+            // Work on copies so callers' arrays aren't mutated.
+            const M = A.map(row => row.slice()), y = b.slice();
+            for (let col = 0; col < n; col++) {
+                let pivot = col, best = Math.abs(M[col][col]);
+                for (let r = col + 1; r < n; r++) {
+                    const v = Math.abs(M[r][col]);
+                    if (v > best) { best = v; pivot = r; }
+                }
+                if (best < 1e-12) return null; // singular
+                if (pivot !== col) { [M[col], M[pivot]] = [M[pivot], M[col]]; [y[col], y[pivot]] = [y[pivot], y[col]]; }
+                for (let r = col + 1; r < n; r++) {
+                    const f = M[r][col] / M[col][col];
+                    if (f === 0) continue;
+                    for (let c = col; c < n; c++) M[r][c] -= f * M[col][c];
+                    y[r] -= f * y[col];
+                }
+            }
+            const x = new Array(n);
+            for (let r = n - 1; r >= 0; r--) {
+                let s = y[r];
+                for (let c = r + 1; c < n; c++) s -= M[r][c] * x[c];
+                x[r] = s / M[r][r];
+            }
+            return x;
+        }
+
+        // Map one point through a 3x3 homography.
+        function slApplyHomography(H, x, y) {
+            const w = H[6] * x + H[7] * y + H[8];
+            return { x: (H[0] * x + H[1] * y + H[2]) / w, y: (H[3] * x + H[4] * y + H[5]) / w };
+        }
+
+        // Invert a 3x3 homography (row-major 9-array). Returns null if singular.
+        function slInvertHomography(H) {
+            const a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7], i = H[8];
+            const A =  (e * i - f * h), B = -(d * i - f * g), C =  (d * h - e * g);
+            const det = a * A + b * B + c * C;
+            if (Math.abs(det) < 1e-12) return null;
+            const id = 1 / det;
+            // Inverse = adjugate / det (adjugate = transpose of cofactor matrix).
+            return [
+                A * id,              -(b * i - c * h) * id,  (b * f - c * e) * id,
+                B * id,               (a * i - c * g) * id, -(a * f - c * d) * id,
+                C * id,              -(a * h - b * g) * id,  (a * e - b * d) * id
+            ];
+        }
+
+        // --- Difference-mask pipeline (all pure; see tests/test_structured_light.py) ---
+
+        // Per-pixel positive luminance difference (white frame minus black frame).
+        // The lit object comes out bright, the ambient background near zero.
+        // Returns a w*h Uint8ClampedArray (negatives clamp to 0).
+        function slDiffLuma(white, black, w, h) {
+            const n = w * h, out = new Uint8ClampedArray(n);
+            for (let k = 0; k < n; k++) {
+                const i = k * 4;
+                const lw = 0.2126 * white[i] + 0.7152 * white[i + 1] + 0.0722 * white[i + 2];
+                const lb = 0.2126 * black[i] + 0.7152 * black[i + 1] + 0.0722 * black[i + 2];
+                out[k] = lw - lb; // Uint8ClampedArray rounds and clamps to 0..255
+            }
+            return out;
+        }
+
+        // Otsu's method: the 0..255 threshold maximising between-class variance.
+        // Classify with `value > threshold` (background is <= threshold).
+        function slOtsu(gray, len) {
+            const hist = new Array(256).fill(0);
+            for (let k = 0; k < len; k++) hist[gray[k]]++;
+            let sum = 0;
+            for (let t = 0; t < 256; t++) sum += t * hist[t];
+            let sumB = 0, wB = 0, maxVar = -1, thresh = 0;
+            for (let t = 0; t < 256; t++) {
+                wB += hist[t];
+                if (wB === 0) continue;
+                const wF = len - wB;
+                if (wF === 0) break;
+                sumB += t * hist[t];
+                const mB = sumB / wB, mF = (sum - sumB) / wF;
+                const between = wB * wF * (mB - mF) * (mB - mF);
+                if (between > maxVar) { maxVar = between; thresh = t; }
+            }
+            return thresh;
+        }
+
+        // Binary erosion / dilation with a square (2r+1) structuring element.
+        // Out-of-bounds counts as background (0).
+        function slMorphErode(bin, w, h, r) {
+            const out = new Uint8Array(w * h);
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                let keep = 1;
+                for (let dy = -r; dy <= r && keep; dy++) for (let dx = -r; dx <= r; dx++) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || ny < 0 || nx >= w || ny >= h || bin[ny * w + nx] === 0) { keep = 0; break; }
+                }
+                out[y * w + x] = keep;
+            }
+            return out;
+        }
+        function slMorphDilate(bin, w, h, r) {
+            const out = new Uint8Array(w * h);
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                let hit = 0;
+                for (let dy = -r; dy <= r && !hit; dy++) for (let dx = -r; dx <= r; dx++) {
+                    const nx = x + dx, ny = y + dy;
+                    if (nx >= 0 && ny >= 0 && nx < w && ny < h && bin[ny * w + nx] === 1) { hit = 1; break; }
+                }
+                out[y * w + x] = hit;
+            }
+            return out;
+        }
+        // Open (removes specks) then close (fills pinholes); despeckles before tracing.
+        function slMorphOpenClose(bin, w, h, r) {
+            const opened = slMorphDilate(slMorphErode(bin, w, h, r), w, h, r);
+            return slMorphErode(slMorphDilate(opened, w, h, r), w, h, r);
+        }
+
+        // Ordered boundary of the largest connected (4-neighbour) blob, via Moore
+        // tracing. Returns [{x,y}, ...] in pixel coords, or [] if the frame is empty.
+        function slTraceContour(bin, w, h) {
+            // Label connected components, keep the biggest.
+            const label = new Int32Array(w * h).fill(0);
+            let best = 0, bestSize = 0, cur = 0;
+            const stack = [];
+            for (let s = 0; s < w * h; s++) {
+                if (bin[s] !== 1 || label[s] !== 0) continue;
+                cur++; let size = 0; stack.length = 0; stack.push(s); label[s] = cur;
+                while (stack.length) {
+                    const p = stack.pop(); size++;
+                    const px = p % w, py = (p / w) | 0;
+                    const nb = [[px+1,py],[px-1,py],[px,py+1],[px,py-1]];
+                    for (const [nx, ny] of nb) {
+                        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                        const q = ny * w + nx;
+                        if (bin[q] === 1 && label[q] === 0) { label[q] = cur; stack.push(q); }
+                    }
+                }
+                if (size > bestSize) { bestSize = size; best = cur; }
+            }
+            if (best === 0) return [];
+            const blob = (x, y) => x >= 0 && y >= 0 && x < w && y < h && label[y * w + x] === best;
+            // Find the top-left-most blob pixel to start.
+            let start = -1;
+            for (let s = 0; s < w * h && start < 0; s++) if (label[s] === best) start = s;
+            const sx = start % w, sy = (start / w) | 0;
+            // Moore-neighbour tracing (8-connected), clockwise.
+            const dirs = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+            const contour = [];
+            let cx = sx, cy = sy, dir = 6; // start searching from "up"
+            const maxSteps = w * h * 8;
+            let steps = 0;
+            do {
+                contour.push({ x: cx, y: cy });
+                let found = false;
+                for (let k = 0; k < 8; k++) {
+                    const d = (dir + k) % 8;
+                    const nx = cx + dirs[d][0], ny = cy + dirs[d][1];
+                    if (blob(nx, ny)) { cx = nx; cy = ny; dir = (d + 6) % 8; found = true; break; }
+                }
+                if (!found) break; // isolated pixel
+                steps++;
+            } while ((cx !== sx || cy !== sy) && steps < maxSteps);
+            return contour;
+        }
+
+        // Douglas-Peucker simplification of a closed contour. Returns the kept vertices.
+        function slSimplifyPolygon(points, epsilon) {
+            if (!points || points.length <= 2) return points ? points.slice() : [];
+            const sqSegDist = (p, a, b) => {
+                let x = a.x, y = a.y, dx = b.x - x, dy = b.y - y;
+                if (dx !== 0 || dy !== 0) {
+                    const t = ((p.x - x) * dx + (p.y - y) * dy) / (dx * dx + dy * dy);
+                    if (t > 1) { x = b.x; y = b.y; } else if (t > 0) { x += dx * t; y += dy * t; }
+                }
+                dx = p.x - x; dy = p.y - y; return dx * dx + dy * dy;
+            };
+            const eps2 = epsilon * epsilon;
+            const keep = new Array(points.length).fill(false);
+            keep[0] = keep[points.length - 1] = true;
+            const run = (lo, hi) => {
+                if (hi <= lo + 1) return;
+                let idx = -1, max = eps2;
+                for (let i = lo + 1; i < hi; i++) {
+                    const d = sqSegDist(points[i], points[lo], points[hi]);
+                    if (d > max) { max = d; idx = i; }
+                }
+                if (idx !== -1) { keep[idx] = true; run(lo, idx); run(idx, hi); }
+            };
+            run(0, points.length - 1);
+            return points.filter((_, i) => keep[i]);
+        }
+
+        // v1 detector: from a black/white capture pair, return the lit object's
+        // outline as canvas-% points (camera px -> projector/canvas % via H_cp).
+        // Returns null when nothing is lit. Geometry only (see ADR 0001, Q11).
+        function slSilhouettePct(white, black, camW, camH, Hcp, opts = {}) {
+            const n = camW * camH;
+            const gray = slDiffLuma(white, black, camW, camH);
+            const t = (opts.threshold != null) ? opts.threshold : slOtsu(gray, n);
+            const bin = new Uint8Array(n);
+            for (let k = 0; k < n; k++) bin[k] = gray[k] > t ? 1 : 0;
+            const clean = slMorphOpenClose(bin, camW, camH, opts.morphRadius ?? 1);
+            const contour = slTraceContour(clean, camW, camH);
+            if (contour.length < 3) return null;
+            const simp = slSimplifyPolygon(contour, opts.simplifyEps ?? 2);
+            if (simp.length < 3) return null;
+            return simp.map(p => slApplyHomography(Hcp, p.x, p.y));
+        }
+
         const YT_W = 640, YT_H = 360;
         function syncDomLayers() {
             const host = document.getElementById('domLayers');
