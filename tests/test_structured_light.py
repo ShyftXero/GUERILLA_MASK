@@ -220,6 +220,99 @@ async () => {
 """
 
 
+# Camera I/O: full-res frame grab + the render-loop pattern flash used for capture.
+JS_CAMERA = """
+async () => {
+  const out = {};
+  await startWebcam();
+  await new Promise(r => setTimeout(r, 600));
+  const cam = app.mediaLibrary.find(m => m.kind === 'camera' && m.element && m.element.videoWidth > 0);
+  out.haveCam = !!cam;
+
+  const f = slGrabCameraFrame(cam);
+  out.grabDims = !!f && f.width > 0 && f.height > 0 && f.data.length === f.width * f.height * 4;
+  out.grabHasPixels = !!f && f.data.some(v => v !== 0);
+
+  // Flash override: project a solid frame; the centre pixel takes the flash colour.
+  const w = app.canvas.logicalWidth, h = app.canvas.logicalHeight;
+  const cx = (w / 2) | 0, cy = (h / 2) | 0;
+  app.sl.flash = '#ff0000'; renderProjection(0);
+  const px = app.canvas.ctx.getImageData(cx, cy, 1, 1).data;
+  out.flashRed = px[0] > 200 && px[1] < 60 && px[2] < 60;
+  app.sl.flash = null; renderProjection(0);
+  const px2 = app.canvas.ctx.getImageData(cx, cy, 1, 1).data;
+  out.flashCleared = !(px2[0] > 200 && px2[1] < 60 && px2[2] < 60);
+  return out;
+}
+"""
+
+
+# Map orchestration: guards + capture flow (detection itself needs real hardware).
+JS_MAP = """
+async () => {
+  const out = {};
+  await startWebcam();
+  await new Promise(r => setTimeout(r, 400));
+
+  // No calibration -> refuses with a clear reason, adds no layer.
+  app.sl.Hcp = null; app.sl.calib = null;
+  const n0 = app.layers.length;
+  const r1 = await slMap({ driftCheck: false, settleFrames: 2 });
+  out.needsCalib = !!r1 && r1.ok === false && r1.reason === 'no-calibration';
+  out.guardNoLayer = app.layers.length === n0;
+
+  // With calibration but (headless) no projection reaching the camera, black and
+  // white grabs match -> nothing detected -> structured result, no throw, no stray layer.
+  slSetCalibration([{x:0,y:0},{x:48,y:0},{x:48,y:36},{x:0,y:36}],
+                   [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]);
+  const n1 = app.layers.length;
+  const r2 = await slMap({ driftCheck: false, settleFrames: 2 });
+  out.ranOk = !!r2 && typeof r2.ok === 'boolean';
+  out.layerInvariant = r2.ok === true ? app.layers.length === n1 + 1 : app.layers.length === n1;
+  app.sl.flash = null;
+  return out;
+}
+"""
+
+
+# UI wiring: buttons exist, underlay toggles, calibration overlay + math round-trip.
+JS_UI = """
+async () => {
+  const out = {};
+  await startWebcam();
+  await new Promise(r => setTimeout(r, 400));
+  out.buttons = !!document.getElementById('slMapBtn')
+    && !!document.getElementById('slCalibrateBtn')
+    && !!document.getElementById('slUnderlayBtn');
+
+  // Underlay toggle flips the flag both ways.
+  app.sl.underlay = false;
+  document.getElementById('slUnderlayBtn').click();
+  out.underlayOn = app.sl.underlay === true;
+  document.getElementById('slUnderlayBtn').click();
+  out.underlayOff = app.sl.underlay === false;
+
+  // Calibrate opens an overlay and projects the white quad.
+  slStartCalibrate();
+  out.calibOpen = !!document.getElementById('slCalibrateOverlay')
+    && app.sl.flash === '#fff' && app.sl.calibrating === true;
+
+  // Finishing with the 4 camera-frame corners calibrates, then cleans up.
+  const cam = slLiveCamera();
+  const vw = cam.element.videoWidth, vh = cam.element.videoHeight;
+  const ok = slFinishCalibrate([{x:0,y:0},{x:vw,y:0},{x:vw,y:vh},{x:0,y:vh}]);
+  slCancelCalibrate();
+  out.calibFinish = ok === true && Array.isArray(app.sl.Hcp);
+  out.calibClosed = !document.getElementById('slCalibrateOverlay')
+    && app.sl.flash === null && app.sl.calibrating === false;
+
+  const q = slApplyHomography(app.sl.Hcp, vw / 2, vh / 2);
+  out.calibMapsCentre = Math.hypot(q.x - 50, q.y - 50) < 2;
+  return out;
+}
+"""
+
+
 def main():
     httpd = serve()
     url = f"http://127.0.0.1:{PORT}/index.html"
@@ -268,6 +361,31 @@ def main():
               all(gl.get(k) for k in ["calibSet", "hcpStored", "calibMaps", "layerShape",
                                       "committed", "undoRemoved", "rejectsFew", "hcpRestored"]),
               json.dumps(gl))
+
+        try:
+            cam = page.evaluate(JS_CAMERA)
+        except Exception as e:
+            cam = {"error": str(e).splitlines()[0]}
+        check("camera: full-res grab + render-loop pattern flash",
+              all(cam.get(k) for k in ["haveCam", "grabDims", "grabHasPixels", "flashRed", "flashCleared"]),
+              json.dumps(cam))
+
+        try:
+            mp = page.evaluate(JS_MAP)
+        except Exception as e:
+            mp = {"error": str(e).splitlines()[0]}
+        check("map: refuses without calibration, runs capture flow without throwing",
+              all(mp.get(k) for k in ["needsCalib", "guardNoLayer", "ranOk", "layerInvariant"]),
+              json.dumps(mp))
+
+        try:
+            ui = page.evaluate(JS_UI)
+        except Exception as e:
+            ui = {"error": str(e).splitlines()[0]}
+        check("ui: buttons, underlay toggle, calibration overlay + math round-trip",
+              all(ui.get(k) for k in ["buttons", "underlayOn", "underlayOff", "calibOpen",
+                                      "calibFinish", "calibClosed", "calibMapsCentre"]),
+              json.dumps(ui))
 
         check("no page errors", not errors, json.dumps(errors[:5]))
         browser.close()

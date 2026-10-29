@@ -296,6 +296,9 @@
                 </select>
                 <button id="micBtn" class="small" title="Microphone reactivity">🎤 Mic</button>
                 <button id="webcamBtn" class="small" title="Add webcam to library">📷 Cam</button>
+                <button id="slCalibrateBtn" class="small" title="Calibrate webcam to projector: project the quad, click its 4 corners">🎯 Calibrate</button>
+                <button id="slMapBtn" class="small primary" title="Map the object in view into a mask layer">🗺 Map</button>
+                <button id="slUnderlayBtn" class="small" title="Show the webcam under the layers so you can map on-screen">👁 Underlay</button>
                 <button id="midiBtn" class="small purple" title="Enable Web MIDI">🎹 MIDI</button>
             </div>
             <div class="tb-group">
@@ -2410,6 +2413,42 @@
             };
         }
 
+        // Grab the camera's current frame at native resolution.
+        // Returns { data: Uint8ClampedArray RGBA, width, height } or null.
+        function slGrabCameraFrame(media) {
+            const el = media && media.element;
+            const vw = el && (el.videoWidth || el.naturalWidth || el.width);
+            const vh = el && (el.videoHeight || el.naturalHeight || el.height);
+            if (!el || !vw || !vh) return null;
+            let s = app.sl._grab;
+            if (!s) { s = app.sl._grab = document.createElement('canvas'); app.sl._grabCtx = s.getContext('2d', { willReadFrequently: true }); }
+            if (s.width !== vw || s.height !== vh) { s.width = vw; s.height = vh; }
+            const g = app.sl._grabCtx;
+            g.drawImage(el, 0, 0, vw, vh);
+            return { data: g.getImageData(0, 0, vw, vh).data, width: vw, height: vh };
+        }
+
+        // The first live camera in the library, or null.
+        function slLiveCamera() {
+            return app.mediaLibrary.find(m => m.kind === 'camera' && m.element && m.element.videoWidth > 0) || null;
+        }
+
+        // Draw the live camera warped into projector/canvas space, dimmed, under the
+        // layers — so mapping can be done on-screen (Q7 (i)). Needs a calibration.
+        function slDrawUnderlay(ctx, w, h) {
+            const cam = slLiveCamera();
+            if (!cam || !app.sl.Hcp) return;
+            const cw = cam.element.videoWidth, ch = cam.element.videoHeight;
+            const corners = [{ x: 0, y: 0 }, { x: cw, y: 0 }, { x: cw, y: ch }, { x: 0, y: ch }].map(p => {
+                const q = slApplyHomography(app.sl.Hcp, p.x, p.y);
+                return { x: pctToPx(q.x, w), y: pctToPx(q.y, h) };
+            });
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            try { renderQuad(ctx, cam.element, corners); } catch (e) { /* guide only */ }
+            ctx.restore();
+        }
+
         // Insert a mask layer as one undo step. Returns the layer, or null if the
         // polygon is too small to be a mask (< 3 points).
         function slCommitMask(pts) {
@@ -2423,6 +2462,131 @@
             updateOverlay();
             scheduleAutosave();
             return layer;
+        }
+
+        // --- Map orchestration (one-shot capture; Q3) ---
+
+        // Resolve after n animation frames (lets the projector show a pattern and the
+        // camera catch it before we grab).
+        function slWaitFrames(n) {
+            return new Promise(res => { let k = Math.max(1, n | 0); const step = () => (--k <= 0 ? res() : requestAnimationFrame(step)); requestAnimationFrame(step); });
+        }
+
+        // Project a solid pattern, settle, then grab the camera. Restores nothing
+        // (caller clears app.sl.flash); returns the grabbed frame or null.
+        async function slFlashAndGrab(color, cam, settleFrames = 6) {
+            app.sl.flash = color;
+            await slWaitFrames(settleFrames);
+            return slGrabCameraFrame(cam);
+        }
+
+        // One-shot Map: black + white capture, detect the lit object, commit a mask.
+        // Geometry only (ADR 0001, Q11). Returns { ok, reason?, layer?, points? }.
+        // NOTE: the auto drift-check (Q10 b) needs auto corner detection (Q6 b), which
+        // is deferred with pro mode; v1 trusts the still rig. See docs/adr/0001.
+        async function slMap(opts = {}) {
+            const cam = slLiveCamera();
+            if (!cam) { showHUD('Map: no live camera. Add a webcam first.'); return { ok: false, reason: 'no-camera' }; }
+            if (!app.sl.Hcp) { showHUD('Map: calibrate first — project the quad and click its 4 corners.'); return { ok: false, reason: 'no-calibration' }; }
+            const settle = opts.settleFrames ?? 6;
+            try {
+                const black = await slFlashAndGrab('#000', cam, settle);
+                const white = await slFlashAndGrab('#fff', cam, settle);
+                if (!black || !white) { showHUD('Map: capture failed.'); return { ok: false, reason: 'capture' }; }
+                const pts = slSilhouettePct(white.data, black.data, white.width, white.height, app.sl.Hcp, opts);
+                if (!pts) { showHUD('Map: nothing detected. Aim at a lit object and retry.'); return { ok: false, reason: 'empty' }; }
+                const layer = slCommitMask(pts);
+                showHUD(`Mapped ${layer.name} (${pts.length} points).`);
+                return { ok: true, layer, points: pts.length };
+            } finally {
+                app.sl.flash = null;
+            }
+        }
+
+        // --- Interactive calibration (Q6 a: project a white quad, click its 4 corners) ---
+
+        // The projected white quad fills the whole output, so its corners are the
+        // canvas corners in %: TL, TR, BR, BL.
+        const SL_CANON_CORNERS = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+
+        // Solve + store H_cp from the four camera-frame corner clicks.
+        function slFinishCalibrate(camClicks) {
+            if (!camClicks || camClicks.length !== 4) return false;
+            const ok = slSetCalibration(camClicks, SL_CANON_CORNERS);
+            if (ok) { app.sl.underlay = true; const ub = document.getElementById('slUnderlayBtn'); if (ub) ub.classList.add('on'); }
+            showHUD(ok ? 'Calibrated — webcam aligned to projector.' : 'Calibration failed: pick 4 non-collinear corners.');
+            return ok;
+        }
+
+        // Tear down the calibration overlay and stop projecting the white quad.
+        function slCancelCalibrate() {
+            app.sl.calibrating = false;
+            app.sl.flash = null;
+            const o = document.getElementById('slCalibrateOverlay');
+            if (o) o.remove();
+        }
+
+        // Open the calibration overlay: project the white quad, show the live camera,
+        // collect four corner clicks (TL, TR, BR, BL), then solve H_cp.
+        function slStartCalibrate() {
+            const cam = slLiveCamera();
+            if (!cam) { showHUD('Calibrate: add a webcam first.'); addCameraFlow(); return; }
+            if (app.sl.calibrating) return;
+            app.sl.calibrating = true;
+            app.sl.flash = '#fff'; // project a solid bright quad across the whole output
+
+            const vw = cam.element.videoWidth, vh = cam.element.videoHeight;
+            const overlay = document.createElement('div');
+            overlay.id = 'slCalibrateOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;color:#fff;font:14px system-ui,sans-serif';
+            const tip = document.createElement('div');
+            tip.id = 'slCalibrateTip';
+            tip.style.cssText = 'max-width:680px;text-align:center;padding:0 16px;line-height:1.4';
+            tip.textContent = 'The projector is showing a white screen. Click its 4 corners as the camera sees them: top-left, then top-right, bottom-right, bottom-left.';
+            const cv = document.createElement('canvas');
+            cv.id = 'slCalibrateCanvas';
+            cv.width = vw; cv.height = vh;
+            const disp = Math.min(760, vw || 760);
+            const scale = vw ? disp / vw : 1;
+            cv.style.cssText = `width:${disp}px;height:${Math.round((vh || 480) * scale)}px;max-width:92vw;max-height:68vh;cursor:crosshair;border:1px solid #333;background:#000`;
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:8px';
+            const resetB = document.createElement('button'); resetB.className = 'small'; resetB.textContent = 'Reset points';
+            const cancelB = document.createElement('button'); cancelB.className = 'small danger'; cancelB.textContent = 'Cancel';
+            row.append(resetB, cancelB);
+            overlay.append(tip, cv, row);
+            document.body.appendChild(overlay);
+
+            const clicks = [];
+            const labels = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+            const tags = ['TL', 'TR', 'BR', 'BL'];
+            const g = cv.getContext('2d');
+            cv.addEventListener('click', (e) => {
+                const r = cv.getBoundingClientRect();
+                const x = (e.clientX - r.left) / r.width * vw;
+                const y = (e.clientY - r.top) / r.height * vh;
+                clicks.push({ x, y });
+                if (clicks.length >= 4) { slFinishCalibrate(clicks.slice(0, 4)); slCancelCalibrate(); }
+            });
+            resetB.addEventListener('click', () => { clicks.length = 0; });
+            cancelB.addEventListener('click', () => slCancelCalibrate());
+
+            const draw = () => {
+                if (!app.sl.calibrating) return;
+                try { g.drawImage(cam.element, 0, 0, vw, vh); } catch (e) { /* camera not ready */ }
+                g.fillStyle = '#0f0'; g.strokeStyle = '#0f0'; g.lineWidth = 2; g.font = '16px system-ui';
+                if (clicks.length > 1) {
+                    g.beginPath(); g.moveTo(clicks[0].x, clicks[0].y);
+                    for (let i = 1; i < clicks.length; i++) g.lineTo(clicks[i].x, clicks[i].y);
+                    g.stroke();
+                }
+                clicks.forEach((p, i) => { g.beginPath(); g.arc(p.x, p.y, 6, 0, Math.PI * 2); g.fill(); g.fillText(tags[i] || '', p.x + 9, p.y + 5); });
+                tip.textContent = clicks.length < 4
+                    ? `Click corner ${clicks.length + 1} of 4 (${labels[clicks.length]}).`
+                    : 'Done.';
+                requestAnimationFrame(draw);
+            };
+            requestAnimationFrame(draw);
         }
 
         const YT_W = 640, YT_H = 360;
@@ -5261,6 +5425,16 @@
             
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, w, h);
+            // Structured-light capture: project a solid pattern frame and skip everything
+            // else, so the camera sees only the pattern (calibration / Map black-white shots).
+            const domHost = document.getElementById('domLayers');
+            if (app.sl.flash) {
+                if (domHost) domHost.style.display = 'none';
+                ctx.fillStyle = app.sl.flash;
+                ctx.fillRect(0, 0, w, h);
+                return;
+            }
+            if (domHost && domHost.style.display === 'none') domHost.style.display = '';
             syncDomLayers();
             if (app.blackout) return;
 
@@ -5270,6 +5444,7 @@
             tickGenerators(dt);
             refreshThumbs(dt);
             mjpegWatchdog(dt);
+            if (app.sl.underlay) slDrawUnderlay(ctx, w, h);
             app.layers.forEach(layer => {
                 if (layer.enabled && layer.type === 'physics') stepPhysics(layer, dt, w, h);
             });
@@ -6630,6 +6805,13 @@
             document.getElementById('addGeneratorBtn').addEventListener('click', addGenerator);
             document.getElementById('addUrlBtn').addEventListener('click', addUrlMedia);
             document.getElementById('webcamBtn').addEventListener('click', () => addCameraFlow());
+            document.getElementById('slCalibrateBtn').addEventListener('click', () => slStartCalibrate());
+            document.getElementById('slMapBtn').addEventListener('click', () => slMap());
+            document.getElementById('slUnderlayBtn').addEventListener('click', (e) => {
+                app.sl.underlay = !app.sl.underlay;
+                e.currentTarget.classList.toggle('on', app.sl.underlay);
+                showHUD(app.sl.underlay ? 'Underlay on: webcam shown under the layers.' : 'Underlay off.');
+            });
             document.getElementById('addSceneBtn').addEventListener('click', addScene);
             document.getElementById('midiClearAllBtn').addEventListener('click', midiClearAll);
             const midiSec = document.getElementById('midiSection');
