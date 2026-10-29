@@ -176,6 +176,50 @@ JS_DETECT = """
 """
 
 
+# Stateful glue: store calibration, build + commit a mask layer, survive save/load.
+JS_GLUE = """
+async () => {
+  const out = {};
+  const camPts  = [{x:0,y:0},{x:48,y:0},{x:48,y:36},{x:0,y:36}];
+  const projPts = [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}];
+
+  // Calibration: store H_cp; the camera-centre maps to the canvas centre.
+  out.calibSet = slSetCalibration(camPts, projPts) === true;
+  out.hcpStored = Array.isArray(app.sl.Hcp) && app.sl.Hcp.length === 9;
+  const q = slApplyHomography(app.sl.Hcp, 24, 18);
+  out.calibMaps = Math.hypot(q.x - 50, q.y - 50) < 1;
+
+  // Build a mask layer with the right shape.
+  const pts = [{x:10,y:10},{x:90,y:10},{x:90,y:90},{x:10,y:90}];
+  const L = slBuildMaskLayer(pts);
+  out.layerShape = L.type === 'mask' && L.enabled === true && !!L.id && !!L.name
+    && L.points.length === 4 && typeof L.hardness === 'number';
+
+  // Commit: layers grow by one, it's selected, undo removes it.
+  const n0 = app.layers.length;
+  const committed = slCommitMask(pts);
+  out.committed = app.layers.length === n0 + 1
+    && app.layers[app.layers.length - 1].id === committed.id
+    && app.selectedLayerId === committed.id;
+  undo();
+  out.undoRemoved = app.layers.length === n0 && !app.layers.some(l => l.id === committed.id);
+
+  // Too few points -> no layer.
+  out.rejectsFew = slCommitMask([{x:1,y:1},{x:2,y:2}]) === null && app.layers.length === n0;
+
+  // H_cp survives a save/load round-trip.
+  slSetCalibration(camPts, projPts);
+  const snap = await buildProjectSnapshot(false);
+  app.sl.Hcp = null; app.sl.calib = null;
+  await restoreFromSnapshot(snap, 'test');
+  await new Promise(r => setTimeout(r, 200));
+  const q2 = app.sl.Hcp ? slApplyHomography(app.sl.Hcp, 24, 18) : {x:0,y:0};
+  out.hcpRestored = Array.isArray(app.sl.Hcp) && app.sl.Hcp.length === 9 && Math.hypot(q2.x - 50, q2.y - 50) < 1;
+  return out;
+}
+"""
+
+
 def main():
     httpd = serve()
     url = f"http://127.0.0.1:{PORT}/index.html"
@@ -216,6 +260,16 @@ def main():
               all(dt.get(k) for k in ["got", "inRange", "boundsX", "boundsY", "emptyNull"]),
               json.dumps(dt))
 
+        try:
+            gl = page.evaluate(JS_GLUE)
+        except Exception as e:
+            gl = {"error": str(e).splitlines()[0]}
+        check("glue: store calibration, build + commit mask, undo, reject, save/load H_cp",
+              all(gl.get(k) for k in ["calibSet", "hcpStored", "calibMaps", "layerShape",
+                                      "committed", "undoRemoved", "rejectsFew", "hcpRestored"]),
+              json.dumps(gl))
+
+        check("no page errors", not errors, json.dumps(errors[:5]))
         browser.close()
     httpd.shutdown()
     print()
