@@ -882,7 +882,7 @@
             } else app.scale = { wallWidthIn: 0, units: 'ft', ruler: null, rulerIn: 0, rulerMovesScene: false, nudgeIn: 1, lockAspect: true };
             if (snapshot.settings && snapshot.settings.sl) {
                 const sl = snapshot.settings.sl;
-                app.sl.Hcp = Array.isArray(sl.Hcp) && sl.Hcp.length === 9 ? sl.Hcp.slice() : null;
+                app.sl.Hcp = Array.isArray(sl.Hcp) && sl.Hcp.length === 9 && sl.Hcp.every(Number.isFinite) ? sl.Hcp.slice() : null;
                 app.sl.calib = sl.calib || null;
             } else { app.sl.Hcp = null; app.sl.calib = null; }
             app.measuring = null;
@@ -2162,6 +2162,41 @@
          *   tests/test_structured_light.py.
          * ===================================================================== */
 
+        // Field-tuning knobs for structured-light mapping (was scattered magic numbers).
+        const SL_TUNING = {
+            settleFrames: 6,         // frames to let the projector show a pattern before grabbing
+            waitFallbackMs: 1200,    // hard timeout so capture never hangs if rAF is paused (hidden tab)
+            maxCaptureDim: 960,      // cap grab resolution -> bounds CV cost on large frames
+            simplifyEps: 2,          // Douglas-Peucker tolerance, camera px
+            morphRadius: 1,          // despeckle structuring-element radius
+            ridgeAngleThresh: 0.35,  // radians; a fold sharper than this marks a ridge
+            minRidgeRows: 2,         // need at least this many rows with a fold to split faces
+            underlayAlpha: 0.5,      // dimming of the camera underlay
+            gridRows: 6, gridCols: 8,// default projected grid for pro mode
+            gridMargin: 0.08,        // grid inset from the canvas edge (fraction)
+            minBlobSize: 8           // ignore blobs smaller than this many px when detecting the grid
+        };
+
+        // Robust (Theil-Sen) fit of x = m*y + c: median pairwise slope + median intercept.
+        // Outlier-resistant (unlike least squares). Returns {m,c} or null if no y-extent.
+        function slFitLineRobust(points) {
+            const n = points.length;
+            if (n < 2) return null;
+            const slopes = [];
+            for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+                const dy = points[j].y - points[i].y;
+                if (Math.abs(dy) > 1e-9) slopes.push((points[j].x - points[i].x) / dy);
+            }
+            if (!slopes.length) return null;
+            const m = slMedian(slopes);
+            return { m, c: slMedian(points.map(p => p.x - m * p.y)) };
+        }
+        function slMedian(arr) {
+            const a = arr.slice().sort((x, y) => x - y);
+            const mid = a.length >> 1;
+            return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+        }
+
         // Solve the 3x3 homography (row-major, 9 numbers, h8 normalised to 1) that
         // maps the four src points to the four dst points. Returns null if the
         // configuration is degenerate (e.g. collinear points -> singular system).
@@ -2383,12 +2418,14 @@
             const t = (opts.threshold != null) ? opts.threshold : slOtsu(gray, n);
             const bin = new Uint8Array(n);
             for (let k = 0; k < n; k++) bin[k] = gray[k] > t ? 1 : 0;
-            const clean = slMorphOpenClose(bin, camW, camH, opts.morphRadius ?? 1);
+            const clean = slMorphOpenClose(bin, camW, camH, opts.morphRadius ?? SL_TUNING.morphRadius);
             const contour = slTraceContour(clean, camW, camH);
             if (contour.length < 3) return null;
-            const simp = slSimplifyPolygon(contour, opts.simplifyEps ?? 2);
+            const simp = slSimplifyPolygon(contour, opts.simplifyEps ?? SL_TUNING.simplifyEps);
             if (simp.length < 3) return null;
-            return simp.map(p => slApplyHomography(Hcp, p.x, p.y));
+            // Scale working-resolution px back to full camera px before H_cp (see slGrabCameraFrame).
+            const sx = opts.scaleX ?? 1, sy = opts.scaleY ?? 1;
+            return simp.map(p => slApplyHomography(Hcp, p.x * sx, p.y * sy));
         }
 
         // --- Stateful glue: calibration, mask commit (geometry only; see ADR 0001) ---
@@ -2414,19 +2451,28 @@
             };
         }
 
-        // Grab the camera's current frame at native resolution.
-        // Returns { data: Uint8ClampedArray RGBA, width, height } or null.
-        function slGrabCameraFrame(media) {
+        // Grab the camera's current frame, optionally downscaled so later CV work is
+        // bounded (opts.maxDim caps the longer side). scaleX/scaleY map the returned
+        // (possibly smaller) pixels back to full camera px for H_cp. Returns
+        // { data: Uint8ClampedArray RGBA, width, height, scaleX, scaleY } or null.
+        function slGrabCameraFrame(media, opts = {}) {
             const el = media && media.element;
             const vw = el && (el.videoWidth || el.naturalWidth || el.width);
             const vh = el && (el.videoHeight || el.naturalHeight || el.height);
             if (!el || !vw || !vh) return null;
+            let tw = vw, th = vh;
+            const maxDim = opts.maxDim || 0;
+            if (maxDim && Math.max(vw, vh) > maxDim) {
+                const s = maxDim / Math.max(vw, vh);
+                tw = Math.max(1, Math.round(vw * s));
+                th = Math.max(1, Math.round(vh * s));
+            }
             let s = app.sl._grab;
             if (!s) { s = app.sl._grab = document.createElement('canvas'); app.sl._grabCtx = s.getContext('2d', { willReadFrequently: true }); }
-            if (s.width !== vw || s.height !== vh) { s.width = vw; s.height = vh; }
+            if (s.width !== tw || s.height !== th) { s.width = tw; s.height = th; }
             const g = app.sl._grabCtx;
-            g.drawImage(el, 0, 0, vw, vh);
-            return { data: g.getImageData(0, 0, vw, vh).data, width: vw, height: vh };
+            g.drawImage(el, 0, 0, tw, th);
+            return { data: g.getImageData(0, 0, tw, th).data, width: tw, height: th, scaleX: vw / tw, scaleY: vh / th };
         }
 
         // The first live camera in the library, or null.
@@ -2445,7 +2491,7 @@
                 return { x: pctToPx(q.x, w), y: pctToPx(q.y, h) };
             });
             ctx.save();
-            ctx.globalAlpha = 0.5;
+            ctx.globalAlpha = SL_TUNING.underlayAlpha;
             try { renderQuad(ctx, cam.element, corners); } catch (e) { /* guide only */ }
             ctx.restore();
         }
@@ -2468,17 +2514,25 @@
         // --- Map orchestration (one-shot capture; Q3) ---
 
         // Resolve after n animation frames (lets the projector show a pattern and the
-        // camera catch it before we grab).
+        // camera catch it before we grab). A setTimeout fallback guarantees it settles
+        // even when rAF is throttled/paused (hidden/minimised window) so capture can
+        // never hang with the projector stuck on a pattern.
         function slWaitFrames(n) {
-            return new Promise(res => { let k = Math.max(1, n | 0); const step = () => (--k <= 0 ? res() : requestAnimationFrame(step)); requestAnimationFrame(step); });
+            return new Promise(res => {
+                let k = Math.max(1, n | 0), done = false;
+                const finish = () => { if (!done) { done = true; res(); } };
+                const step = () => { if (!done) (--k <= 0 ? finish() : requestAnimationFrame(step)); };
+                requestAnimationFrame(step);
+                setTimeout(finish, SL_TUNING.waitFallbackMs + k * 40);
+            });
         }
 
-        // Project a solid pattern, settle, then grab the camera. Restores nothing
-        // (caller clears app.sl.flash); returns the grabbed frame or null.
-        async function slFlashAndGrab(color, cam, settleFrames = 6) {
+        // Project a solid pattern, settle, then grab the camera (downscaled). Restores
+        // nothing (caller clears app.sl.flash); returns the grabbed frame or null.
+        async function slFlashAndGrab(color, cam, settleFrames = SL_TUNING.settleFrames) {
             app.sl.flash = color;
             await slWaitFrames(settleFrames);
-            return slGrabCameraFrame(cam);
+            return slGrabCameraFrame(cam, { maxDim: SL_TUNING.maxCaptureDim });
         }
 
         // One-shot Map: black + white capture, detect the lit object, commit a mask.
@@ -2489,12 +2543,13 @@
             const cam = slLiveCamera();
             if (!cam) { showHUD('Map: no live camera. Add a webcam first.'); return { ok: false, reason: 'no-camera' }; }
             if (!app.sl.Hcp) { showHUD('Map: calibrate first — project the quad and click its 4 corners.'); return { ok: false, reason: 'no-calibration' }; }
-            const settle = opts.settleFrames ?? 6;
+            const settle = opts.settleFrames ?? SL_TUNING.settleFrames;
             try {
                 const black = await slFlashAndGrab('#000', cam, settle);
                 const white = await slFlashAndGrab('#fff', cam, settle);
                 if (!black || !white) { showHUD('Map: capture failed.'); return { ok: false, reason: 'capture' }; }
-                const pts = slSilhouettePct(white.data, black.data, white.width, white.height, app.sl.Hcp, opts);
+                const pts = slSilhouettePct(white.data, black.data, white.width, white.height, app.sl.Hcp,
+                    { ...opts, scaleX: white.scaleX, scaleY: white.scaleY });
                 if (!pts) { showHUD('Map: nothing detected. Aim at a lit object and retry.'); return { ok: false, reason: 'empty' }; }
                 const layer = slCommitMask(pts);
                 showHUD(`Mapped ${layer.name} (${pts.length} points).`);
@@ -2637,9 +2692,16 @@
         // (camera space). Returns { ridge, cols, faces:[quadA, quadB] } or empty faces
         // when there's no clear fold. Faces are [TL, ridgeTop, ridgeBot, BL] and
         // [ridgeTop, TR, BR, ridgeBot] — adjacent along the shared ridge edge.
+        //
+        // This detects exactly ONE ridge, so it always yields exactly TWO faces (good
+        // for a pyramid's two visible sides). slCommitFaces is written generically for N
+        // faces so a future multi-ridge segmenter can return more. The dividing edge is a
+        // robust (Theil-Sen) line fit through every detected ridge point, so it tolerates
+        // rows that missed the fold and a few noisy outliers (does not need all rows).
         function slSegmentFacesFromGrid(mesh, opts = {}) {
-            const angleThresh = opts.angleThresh ?? 0.3;
-            if (!mesh || mesh.length < 1 || mesh[0].length < 3) return { ridge: [], cols: [], faces: [] };
+            const angleThresh = opts.angleThresh ?? SL_TUNING.ridgeAngleThresh;
+            const minRows = opts.minRidgeRows ?? SL_TUNING.minRidgeRows;
+            if (!mesh || mesh.length < 2 || mesh[0].length < 3) return { ridge: [], cols: [], faces: [] };
             const R = mesh.length, C = mesh[0].length;
             const ridge = [], cols = [];
             for (let r = 0; r < R; r++) {
@@ -2651,11 +2713,16 @@
                 }
                 if (bestCol >= 0) { ridge.push({ x: row[bestCol].x, y: row[bestCol].y }); cols.push(bestCol); }
             }
-            if (cols.length < R || R < 2) return { ridge, cols, faces: [] };
-            const top = 0, bot = R - 1, cTop = cols[top], cBot = cols[bot];
+            if (ridge.length < minRows) return { ridge, cols, faces: [] };
+            const fit = slFitLineRobust(ridge); // x = m*y + c, robust to missing rows / outliers
+            if (!fit) return { ridge, cols, faces: [] };
+            const rowY = row => row.reduce((s, p) => s + p.y, 0) / row.length;
+            const yTop = rowY(mesh[0]), yBot = rowY(mesh[R - 1]);
+            const onLine = y => ({ x: fit.m * y + fit.c, y });
+            const rTop = onLine(yTop), rBot = onLine(yBot); // shared ridge endpoints
             const cp = p => ({ x: p.x, y: p.y });
-            const A = [cp(mesh[top][0]), cp(mesh[top][cTop]), cp(mesh[bot][cBot]), cp(mesh[bot][0])];
-            const B = [cp(mesh[top][cTop]), cp(mesh[top][C - 1]), cp(mesh[bot][C - 1]), cp(mesh[bot][cBot])];
+            const A = [cp(mesh[0][0]), cp(rTop), cp(rBot), cp(mesh[R - 1][0])];
+            const B = [cp(rTop), cp(mesh[0][C - 1]), cp(mesh[R - 1][C - 1]), cp(rBot)];
             return { ridge, cols, faces: [A, B] };
         }
 
@@ -2669,6 +2736,11 @@
             const first = facePcts[0], last = facePcts[facePcts.length - 1];
             // Outer boundary of the fan of faces = object silhouette.
             const silhouette = [first[0], last[1], last[2], first[3]];
+            // Reuse the currently-selected library media so the faces actually show
+            // something (geometry-only still holds: we create no new media). If none is
+            // selected the faces are empty quads the user drops media onto.
+            const mediaId = opts.mediaId ?? app.selectedMediaId ?? null;
+            const mediaObj = mediaId ? app.mediaLibrary.find(m => m.id === mediaId) : null;
             pushUndo('map faces');
             const mask = slBuildMaskLayer(silhouette);
             app.layers.push(mask);
@@ -2676,7 +2748,7 @@
                 const layer = {
                     id: uuid(), type: 'projection',
                     name: `${LAYER_LABELS['projection'] || 'Projection'} face ${i + 1}`,
-                    mediaId: opts.mediaId || null, mediaName: opts.mediaName || null,
+                    mediaId: mediaObj ? mediaObj.id : null, mediaName: mediaObj ? mediaObj.name : (opts.mediaName || null),
                     enabled: true, points: pts.map(p => ({ x: p.x, y: p.y })), hardness: 1, projective: true
                 };
                 app.layers.push(layer);
@@ -2687,7 +2759,7 @@
             updateLayerList();
             updateOverlay();
             scheduleAutosave();
-            return { mask, faces: faceLayers };
+            return { mask, faces: faceLayers, hasMedia: !!mediaObj };
         }
 
         // --- Pro mode: grid projection + camera grid detection + orchestration ---
@@ -2695,7 +2767,7 @@
         // Draw a rows x cols dot grid (bright on black) for projection/detection.
         function slDrawGridPattern(ctx, w, h, rows, cols, opts = {}) {
             const r = opts.dot ?? Math.max(3, Math.min(w, h) / (Math.max(rows, cols) * 4));
-            const mx = w * 0.08, my = h * 0.08;
+            const mx = w * SL_TUNING.gridMargin, my = h * SL_TUNING.gridMargin;
             ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
             ctx.fillStyle = opts.color || '#0f0';
             for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
@@ -2755,7 +2827,10 @@
             const t = (opts.threshold != null) ? opts.threshold : slOtsu(gray, n);
             const bin = new Uint8Array(n);
             for (let k = 0; k < n; k++) bin[k] = gray[k] > t ? 1 : 0;
-            const cs = slBlobCentroids(bin, w, h, opts.minSize ?? 8);
+            // Scale centroids back to full camera px (frame may be downscaled, see slGrabCameraFrame).
+            const sx = opts.scaleX ?? 1, sy = opts.scaleY ?? 1;
+            const cs = slBlobCentroids(bin, w, h, opts.minSize ?? SL_TUNING.minBlobSize)
+                .map(c => ({ x: c.x * sx, y: c.y * sy, size: c.size }));
             return slOrderMesh(cs, rows, cols);
         }
 
@@ -2765,19 +2840,23 @@
             const cam = slLiveCamera();
             if (!cam) { showHUD('Map faces: no live camera.'); return { ok: false, reason: 'no-camera' }; }
             if (!app.sl.Hcp) { showHUD('Map faces: calibrate first.'); return { ok: false, reason: 'no-calibration' }; }
-            const rows = opts.rows ?? 6, cols = opts.cols ?? 8, settle = opts.settleFrames ?? 6;
+            const rows = opts.rows ?? SL_TUNING.gridRows, cols = opts.cols ?? SL_TUNING.gridCols;
+            const settle = opts.settleFrames ?? SL_TUNING.settleFrames;
             try {
                 app.sl.flashGrid = { rows, cols };
                 await slWaitFrames(settle);
-                const frame = slGrabCameraFrame(cam);
+                const frame = slGrabCameraFrame(cam, { maxDim: SL_TUNING.maxCaptureDim });
                 app.sl.flashGrid = null;
                 if (!frame) { showHUD('Map faces: capture failed.'); return { ok: false, reason: 'capture' }; }
-                const mesh = slDetectGridMesh(frame.data, frame.width, frame.height, rows, cols, opts);
+                const mesh = slDetectGridMesh(frame.data, frame.width, frame.height, rows, cols,
+                    { ...opts, scaleX: frame.scaleX, scaleY: frame.scaleY });
                 if (!mesh) { showHUD('Map faces: grid not found — adjust lighting/aim.'); return { ok: false, reason: 'no-grid' }; }
                 const seg = slSegmentFacesFromGrid(mesh, opts);
                 if (!seg.faces.length) { showHUD('Map faces: no fold detected (looks flat — use Map).'); return { ok: false, reason: 'no-ridge' }; }
                 const res = slCommitFaces(seg.faces, app.sl.Hcp, opts);
-                showHUD(`Mapped ${seg.faces.length} faces + silhouette.`);
+                showHUD(res.hasMedia
+                    ? `Mapped ${seg.faces.length} faces + silhouette.`
+                    : `Mapped ${seg.faces.length} faces + silhouette — drop media onto the faces to project.`);
                 return { ok: true, mask: res.mask, faces: res.faces, ridge: seg.ridge };
             } finally {
                 app.sl.flashGrid = null;

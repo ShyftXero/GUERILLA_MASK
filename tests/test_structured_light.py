@@ -346,37 +346,43 @@ JS_PROJECTIVE = """
 """
 
 
-# Pro mode: ridge detection + face split from a deformed grid mesh (Q13, Q15).
+# Pro mode: ridge detection + ROBUST face split (tolerates missing rows + outliers).
 JS_RIDGE = """
 () => {
   const out = {};
-  const R = 5, C = 9, ridgeCol = 4;
-  // A tent: each row rises to an apex at ridgeCol then falls -> a sharp fold there.
-  const mesh = [];
-  for (let r = 0; r < R; r++) {
-    const row = [], baseY = r * 12;
-    for (let c = 0; c < C; c++) {
-      const up = c <= ridgeCol ? c * 4 : (C - 1 - c) * 4;
-      row.push({ x: c * 10, y: baseY - up });
-    }
-    mesh.push(row);
-  }
-  const seg = slSegmentFacesFromGrid(mesh, { angleThresh: 0.3 });
+  const R = 5, C = 9, ridgeCol = 4;      // tent apex at col 4 -> ridge x = 40
+  const tentRow = (baseY) => {
+    const row = [];
+    for (let c = 0; c < C; c++) { const up = c <= ridgeCol ? c * 4 : (C - 1 - c) * 4; row.push({ x: c * 10, y: baseY - up }); }
+    return row;
+  };
   const same = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-6;
-  out.ridgeLen = Array.isArray(seg.ridge) && seg.ridge.length === R;
+
+  const mesh = []; for (let r = 0; r < R; r++) mesh.push(tentRow(r * 12));
+  const seg = slSegmentFacesFromGrid(mesh, { angleThresh: 0.3 });
+  out.ridgeLen = seg.ridge.length === R;
   out.ridgeAtApex = seg.ridge.every((p, r) => same(p, mesh[r][ridgeCol]));
-  out.twoFaces = Array.isArray(seg.faces) && seg.faces.length === 2
-    && seg.faces[0].length === 4 && seg.faces[1].length === 4;
+  out.twoFaces = seg.faces.length === 2 && seg.faces[0].length === 4 && seg.faces[1].length === 4;
   const A = seg.faces[0], B = seg.faces[1];
-  // Adjacent faces share the ridge's top and bottom vertices exactly (Q15).
-  out.sharedRidge = same(A[1], B[0]) && same(A[2], B[3])
-    && same(A[1], mesh[0][ridgeCol]) && same(A[2], mesh[R - 1][ridgeCol]);
+  // Adjacent faces share the ridge endpoints, which sit on the fold column (x=40).
+  out.sharedRidge = same(A[1], B[0]) && same(A[2], B[3]) && Math.abs(A[1].x - 40) < 1 && Math.abs(A[2].x - 40) < 1;
+
+  // W1: one row with no fold -> still two faces (tolerate missing rows).
+  const meshMiss = []; for (let r = 0; r < R; r++) meshMiss.push(tentRow(r * 12));
+  for (let c = 0; c < C; c++) meshMiss[2][c] = { x: c * 10, y: 24 }; // flatten row 2
+  const segMiss = slSegmentFacesFromGrid(meshMiss, { angleThresh: 0.3 });
+  out.missingRowTolerant = segMiss.faces.length === 2 && segMiss.ridge.length === R - 1;
+
+  // W2: one outlier ridge row (fold at col 1) must NOT skew the fitted dividing line.
+  const meshOut = []; for (let r = 0; r < R; r++) meshOut.push(tentRow(r * 12));
+  meshOut[0] = (() => { const row = []; for (let c = 0; c < C; c++) row.push({ x: c * 10, y: (c === 1 ? -20 : 0) }); return row; })();
+  const segOut = slSegmentFacesFromGrid(meshOut, { angleThresh: 0.3 });
+  out.outlierRobust = segOut.faces.length === 2 && Math.abs(segOut.faces[0][1].x - 40) < 3;
 
   // A flat mesh has no fold -> no ridge, no split.
-  const flat = [];
-  for (let r = 0; r < R; r++) { const row = []; for (let c = 0; c < C; c++) row.push({ x: c * 10, y: r * 12 }); flat.push(row); }
+  const flat = []; for (let r = 0; r < R; r++) { const row = []; for (let c = 0; c < C; c++) row.push({ x: c * 10, y: r * 12 }); flat.push(row); }
   const seg2 = slSegmentFacesFromGrid(flat, { angleThresh: 0.3 });
-  out.flatNoRidge = seg2.ridge.length === 0 && (!seg2.faces || seg2.faces.length === 0);
+  out.flatNoRidge = seg2.ridge.length === 0 && seg2.faces.length === 0;
   return out;
 }
 """
@@ -430,6 +436,62 @@ async () => {
   app.sl.Hcp = null; app.sl.calib = null;
   const r = await slMapPro({ settleFrames: 2 });
   out.proGuard = !!r && r.ok === false && r.reason === 'no-calibration';
+  return out;
+}
+"""
+
+
+# Hardening (adversarial-review fixes): capture never hangs, bad H_cp rejected,
+# grab is resolution-capped with scale back, faces reuse the selected media.
+JS_HARDEN = """
+async () => {
+  const out = {};
+
+  // W3: slWaitFrames resolves via the timeout fallback even if rAF never fires.
+  const realRaf = window.requestAnimationFrame;
+  window.requestAnimationFrame = () => 0; // stub: callback never runs
+  const t0 = performance.now();
+  await slWaitFrames(3);
+  const dt = performance.now() - t0;
+  window.requestAnimationFrame = realRaf;
+  realRaf(animate); // re-kick the render loop the stub starved
+  out.waitFallback = dt < 3000 && dt > 50;
+
+  // N1: snapshot restore rejects a non-finite H_cp, accepts a valid one.
+  const snap = await buildProjectSnapshot(false);
+  snap.settings.sl = { Hcp: [1,0,0,0,1,0,0,0,NaN], calib: null };
+  await restoreFromSnapshot(snap, 't'); await new Promise(r => setTimeout(r, 120));
+  out.rejectBadHcp = app.sl.Hcp === null;
+  snap.settings.sl = { Hcp: [1,0,0,0,1,0,0,0,1], calib: null };
+  await restoreFromSnapshot(snap, 't'); await new Promise(r => setTimeout(r, 120));
+  out.acceptGoodHcp = Array.isArray(app.sl.Hcp) && app.sl.Hcp.length === 9;
+
+  // N2: grab caps resolution and reports the scale back to full camera px.
+  await startWebcam(); await new Promise(r => setTimeout(r, 400));
+  const cam = slLiveCamera();
+  const f = slGrabCameraFrame(cam, { maxDim: 64 });
+  out.grabCapped = !!f && Math.max(f.width, f.height) <= 64 && f.scaleX > 1
+    && Math.abs(f.scaleX - cam.element.videoWidth / f.width) < 1e-6;
+
+  // N2 plumbing: slSilhouettePct honours scaleX/scaleY (scale px before H_cp).
+  const Hcp = slSolveHomography([{x:0,y:0},{x:48,y:0},{x:48,y:36},{x:0,y:36}],
+                                [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]);
+  const W = 48, H = 36;
+  const mk = (o, b) => { const d = new Uint8ClampedArray(W*H*4); for (let y=0;y<H;y++) for (let x=0;x<W;x++){ const io=x>=12&&x<36&&y>=9&&y<27; const v=io?o:b; const i=(y*W+x)*4; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; } return d; };
+  const blk = mk(20,15), wht = mk(230,40);
+  const p1 = slSilhouettePct(wht, blk, W, H, Hcp, {});
+  const p2 = slSilhouettePct(wht, blk, W, H, Hcp, { scaleX: 2, scaleY: 2 });
+  out.scaleHonored = Math.max(...p2.map(p => p.x)) > Math.max(...p1.map(p => p.x)) * 1.5;
+
+  // W5: slCommitFaces reuses the selected library media for the faces.
+  const media = app.mediaLibrary[0];
+  app.selectedMediaId = media ? media.id : null;
+  const nA = [{x:4,y:2},{x:24,y:2},{x:24,y:34},{x:4,y:34}], nB = [{x:24,y:2},{x:44,y:2},{x:44,y:34},{x:24,y:34}];
+  const res = slCommitFaces([nA, nB], Hcp, {});
+  out.faceMediaDefault = media
+    ? (res.hasMedia === true && res.faces.every(fl => fl.mediaId === media.id))
+    : (res.hasMedia === false);
+  undo();
   return out;
 }
 """
@@ -541,6 +603,15 @@ def main():
               all(p2.get(k) for k in ["meshDims", "rowMonotonic", "colMonotonic", "wrongCountNull",
                                       "facesBtn", "proGuard"]),
               json.dumps(p2))
+
+        try:
+            hd = page.evaluate(JS_HARDEN)
+        except Exception as e:
+            hd = {"error": str(e).splitlines()[0]}
+        check("harden: capture no-hang fallback, bad H_cp rejected, grab cap+scale, face media",
+              all(hd.get(k) for k in ["waitFallback", "rejectBadHcp", "acceptGoodHcp", "grabCapped",
+                                      "scaleHonored", "faceMediaDefault"]),
+              json.dumps(hd))
 
         check("no page errors", not errors, json.dumps(errors[:5]))
         browser.close()
