@@ -170,6 +170,7 @@ Any laptop from the last decade with a modern browser. A common 720p/1080p proje
 
 ## Field checklist
 
+- Build the offline file before you go: `./build.sh` writes `dist/index.html` with gifler inlined — one self-contained file, no CDN, GIFs animate with zero network. Copy that to the show laptop or a USB stick. The dev `index.html` fetches gifler from a CDN on first open (GIFs fall back to a still frame if it can't), so don't rely on it where there's no signal.
 - Charge laptop; disable auto-updates. Fullscreen requests a wake lock, but set the OS to never sleep anyway.
 - Open the page from disk or https. On a LAN `http://` address the webcam, mic, and MIDI buttons cannot start.
 - Browser zoom 100%. Press B once to confirm blackout works. Test fullscreen and handle toggle before moving.
@@ -201,7 +202,7 @@ Don't shine into windows or traffic. Keep cables tidy. Have spotters and plan a 
 ## Technical notes
 
 - Single HTML file (vanilla JS + inline CSS). A section index comment sits at the top of the script. Tunable constants live in one `TUNING` object.
-- GIF decoding via gifler. Development loads it from a CDN; release builds inline it (commit `71039ec`). If the decoder is missing (offline dev copy) GIFs fall back to still frames with a HUD warning. Zero-delay GIF frames are clamped to 100 ms, same as browsers, because gifler otherwise spins forever.
+- GIF decoding via gifler. Dev `index.html` loads it from a CDN; `./build.sh` (`tools/build_offline.py`) inlines the vendored copy (`vendor/gifler.min.js`) into `dist/index.html` as its own `<script>` appended before `</body>` — never spliced into the app script — for a no-network single file. `tests/test_offline_build.py` verifies the built file runs with all external network blocked. If the decoder is missing (un-built copy opened offline) GIFs fall back to still frames with a HUD warning. Zero-delay GIF frames are clamped to 100 ms, same as browsers, because gifler otherwise spins forever.
 - Persistence: IndexedDB stores `kv/autosave` (snapshot, no media data) and `files/<kind>:<name>` (original blobs). Save embeds blobs as data URLs.
 - Tests: `./tests/run.sh` drives headless Chrome through load, physics, scenes, MIDI, autosave, and a fresh-machine Save/Load round trip. Needs `uv` and a Chrome binary. Large sample media is marked for Git LFS in `.gitattributes`.
 - Patterns render into offscreen canvases (pixel generators at 128–160px, vector ones at 512px) and only tick when a layer uses them. Effects run in their own WebGL context with ping-pong framebuffers (feedback at 512px, reaction-diffusion at 256px with half-float state when available, 8 sim steps per frame).
