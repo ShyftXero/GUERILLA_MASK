@@ -298,6 +298,7 @@
                 <button id="webcamBtn" class="small" title="Add webcam to library">📷 Cam</button>
                 <button id="slCalibrateBtn" class="small" title="Calibrate webcam to projector: project the quad, click its 4 corners">🎯 Calibrate</button>
                 <button id="slMapBtn" class="small primary" title="Map the object in view into a mask layer">🗺 Map</button>
+                <button id="slFacesBtn" class="small" title="Pro mode: map a 3D object's visible faces (projects a grid)">🔺 Faces</button>
                 <button id="slUnderlayBtn" class="small" title="Show the webcam under the layers so you can map on-screen">👁 Underlay</button>
                 <button id="midiBtn" class="small purple" title="Enable Web MIDI">🎹 MIDI</button>
             </div>
@@ -2589,6 +2590,200 @@
             requestAnimationFrame(draw);
         }
 
+        // --- Pro mode: true projective raster for faces (ADR 0002, Q14) ---
+
+        // Homography mapping the unit square (0,0),(1,0),(1,1),(0,1) -> the dest quad.
+        function slQuadHomography(dstPoints) {
+            return slSolveHomography([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], dstPoints);
+        }
+
+        // Warp an image onto a 4-corner quad with a TRUE perspective homography (not
+        // the bilinear approximation of renderQuad), so straight lines stay straight
+        // on a face viewed at an angle. Same triangle-mesh draw; dest vertices come
+        // from the homography instead of bilinear interpolation.
+        function slWarpImageProjective(ctx, source, dstPoints, subdivisions = 10) {
+            if (!source) return;
+            const H = slQuadHomography(dstPoints);
+            if (!H) return;
+            const sw = source.videoWidth || source.width;
+            const sh = source.videoHeight || source.height;
+            const P = (u, v) => slApplyHomography(H, u, v);
+            for (let row = 0; row < subdivisions; row++) {
+                for (let col = 0; col < subdivisions; col++) {
+                    const u0 = col / subdivisions, u1 = (col + 1) / subdivisions;
+                    const v0 = row / subdivisions, v1 = (row + 1) / subdivisions;
+                    const tl = P(u0, v0), tr = P(u1, v0), br = P(u1, v1), bl = P(u0, v1);
+                    const sx0 = u0 * sw, sx1 = u1 * sw, sy0 = v0 * sh, sy1 = v1 * sh;
+                    drawTriangle(ctx, source, sx0, sy0, sx1, sy0, sx0, sy1, tl.x, tl.y, tr.x, tr.y, bl.x, bl.y);
+                    drawTriangle(ctx, source, sx1, sy0, sx1, sy1, sx0, sy1, tr.x, tr.y, br.x, br.y, bl.x, bl.y);
+                }
+            }
+        }
+
+        // --- Pro mode: face segmentation from a deformed grid (Q13) ---
+
+        // Turning angle (radians) at b between segments a->b and b->c. 0 = straight.
+        function slTurnAngle(a, b, c) {
+            const v1x = b.x - a.x, v1y = b.y - a.y, v2x = c.x - b.x, v2y = c.y - b.y;
+            const d1 = Math.hypot(v1x, v1y), d2 = Math.hypot(v2x, v2y);
+            if (d1 < 1e-9 || d2 < 1e-9) return 0;
+            let cos = (v1x * v2x + v1y * v2y) / (d1 * d2);
+            cos = Math.max(-1, Math.min(1, cos));
+            return Math.acos(cos);
+        }
+
+        // Find the ridge (sharpest fold per grid row) and split a mesh into two faces
+        // that SHARE the ridge's top and bottom vertices (Q15). mesh = rows of {x,y}
+        // (camera space). Returns { ridge, cols, faces:[quadA, quadB] } or empty faces
+        // when there's no clear fold. Faces are [TL, ridgeTop, ridgeBot, BL] and
+        // [ridgeTop, TR, BR, ridgeBot] — adjacent along the shared ridge edge.
+        function slSegmentFacesFromGrid(mesh, opts = {}) {
+            const angleThresh = opts.angleThresh ?? 0.3;
+            if (!mesh || mesh.length < 1 || mesh[0].length < 3) return { ridge: [], cols: [], faces: [] };
+            const R = mesh.length, C = mesh[0].length;
+            const ridge = [], cols = [];
+            for (let r = 0; r < R; r++) {
+                const row = mesh[r];
+                let bestCol = -1, bestAng = angleThresh;
+                for (let c = 1; c < C - 1; c++) {
+                    const ang = slTurnAngle(row[c - 1], row[c], row[c + 1]);
+                    if (ang > bestAng) { bestAng = ang; bestCol = c; }
+                }
+                if (bestCol >= 0) { ridge.push({ x: row[bestCol].x, y: row[bestCol].y }); cols.push(bestCol); }
+            }
+            if (cols.length < R || R < 2) return { ridge, cols, faces: [] };
+            const top = 0, bot = R - 1, cTop = cols[top], cBot = cols[bot];
+            const cp = p => ({ x: p.x, y: p.y });
+            const A = [cp(mesh[top][0]), cp(mesh[top][cTop]), cp(mesh[bot][cBot]), cp(mesh[bot][0])];
+            const B = [cp(mesh[top][cTop]), cp(mesh[top][C - 1]), cp(mesh[bot][C - 1]), cp(mesh[bot][cBot])];
+            return { ridge, cols, faces: [A, B] };
+        }
+
+        // Commit pro-mode output (Q15): a silhouette occlusion mask plus one projective
+        // projection layer per face, all in canvas-% via Hcp, in one undo step. Faces
+        // built from shared camera ridge points stay seam-sharing after the transform.
+        // Geometry only (ADR 0001, Q11). Returns { mask, faces:[layers] } or null.
+        function slCommitFaces(faces, Hcp, opts = {}) {
+            if (!faces || faces.length < 1 || !Hcp) return null;
+            const facePcts = faces.map(quad => quad.map(p => slApplyHomography(Hcp, p.x, p.y)));
+            const first = facePcts[0], last = facePcts[facePcts.length - 1];
+            // Outer boundary of the fan of faces = object silhouette.
+            const silhouette = [first[0], last[1], last[2], first[3]];
+            pushUndo('map faces');
+            const mask = slBuildMaskLayer(silhouette);
+            app.layers.push(mask);
+            const faceLayers = facePcts.map((pts, i) => {
+                const layer = {
+                    id: uuid(), type: 'projection',
+                    name: `${LAYER_LABELS['projection'] || 'Projection'} face ${i + 1}`,
+                    mediaId: opts.mediaId || null, mediaName: opts.mediaName || null,
+                    enabled: true, points: pts.map(p => ({ x: p.x, y: p.y })), hardness: 1, projective: true
+                };
+                app.layers.push(layer);
+                return layer;
+            });
+            app.selectedLayerId = (faceLayers[0] || mask).id;
+            app.addingPoints = false;
+            updateLayerList();
+            updateOverlay();
+            scheduleAutosave();
+            return { mask, faces: faceLayers };
+        }
+
+        // --- Pro mode: grid projection + camera grid detection + orchestration ---
+
+        // Draw a rows x cols dot grid (bright on black) for projection/detection.
+        function slDrawGridPattern(ctx, w, h, rows, cols, opts = {}) {
+            const r = opts.dot ?? Math.max(3, Math.min(w, h) / (Math.max(rows, cols) * 4));
+            const mx = w * 0.08, my = h * 0.08;
+            ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = opts.color || '#0f0';
+            for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+                const x = mx + (cols === 1 ? 0 : j / (cols - 1)) * (w - 2 * mx);
+                const y = my + (rows === 1 ? 0 : i / (rows - 1)) * (h - 2 * my);
+                ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+
+        // Centroids of bright blobs in a binary image (connected-component means).
+        function slBlobCentroids(bin, w, h, minSize = 8) {
+            const label = new Int32Array(w * h);
+            const sumX = [], sumY = [], cnt = [];
+            let cur = 0; const stack = [];
+            for (let s = 0; s < w * h; s++) {
+                if (bin[s] !== 1 || label[s] !== 0) continue;
+                cur++; sumX[cur] = 0; sumY[cur] = 0; cnt[cur] = 0;
+                stack.length = 0; stack.push(s); label[s] = cur;
+                while (stack.length) {
+                    const p = stack.pop(), px = p % w, py = (p / w) | 0;
+                    sumX[cur] += px; sumY[cur] += py; cnt[cur]++;
+                    const nb = [[px+1,py],[px-1,py],[px,py+1],[px,py-1]];
+                    for (const [nx, ny] of nb) {
+                        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                        const q = ny * w + nx;
+                        if (bin[q] === 1 && label[q] === 0) { label[q] = cur; stack.push(q); }
+                    }
+                }
+            }
+            const out = [];
+            for (let c = 1; c <= cur; c++) if (cnt[c] >= minSize) out.push({ x: sumX[c] / cnt[c], y: sumY[c] / cnt[c], size: cnt[c] });
+            return out;
+        }
+
+        // Order a flat list of centroids into a rows x cols mesh (y-band then x-sort).
+        // Returns null unless exactly rows*cols points are present.
+        function slOrderMesh(centroids, rows, cols) {
+            if (!centroids || centroids.length !== rows * cols) return null;
+            const byY = centroids.slice().sort((a, b) => a.y - b.y);
+            const mesh = [];
+            for (let r = 0; r < rows; r++) {
+                const band = byY.slice(r * cols, (r + 1) * cols).sort((a, b) => a.x - b.x);
+                mesh.push(band.map(p => ({ x: p.x, y: p.y })));
+            }
+            return mesh;
+        }
+
+        // Detect a projected rows x cols grid in a camera frame -> ordered mesh, or null.
+        // NOTE: tuned on synthetic grids; real webcam+projector capture needs field
+        // tuning (ambient light, dot size, perspective) — the "debug later" part.
+        function slDetectGridMesh(data, w, h, rows, cols, opts = {}) {
+            const n = w * h, gray = new Uint8ClampedArray(n);
+            for (let k = 0; k < n; k++) {
+                const i = k * 4;
+                gray[k] = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+            }
+            const t = (opts.threshold != null) ? opts.threshold : slOtsu(gray, n);
+            const bin = new Uint8Array(n);
+            for (let k = 0; k < n; k++) bin[k] = gray[k] > t ? 1 : 0;
+            const cs = slBlobCentroids(bin, w, h, opts.minSize ?? 8);
+            return slOrderMesh(cs, rows, cols);
+        }
+
+        // Pro-mode Map (Q13-Q15): project a grid, detect it, split faces at the ridge,
+        // commit a silhouette mask + projective face layers. Returns { ok, reason?, ... }.
+        async function slMapPro(opts = {}) {
+            const cam = slLiveCamera();
+            if (!cam) { showHUD('Map faces: no live camera.'); return { ok: false, reason: 'no-camera' }; }
+            if (!app.sl.Hcp) { showHUD('Map faces: calibrate first.'); return { ok: false, reason: 'no-calibration' }; }
+            const rows = opts.rows ?? 6, cols = opts.cols ?? 8, settle = opts.settleFrames ?? 6;
+            try {
+                app.sl.flashGrid = { rows, cols };
+                await slWaitFrames(settle);
+                const frame = slGrabCameraFrame(cam);
+                app.sl.flashGrid = null;
+                if (!frame) { showHUD('Map faces: capture failed.'); return { ok: false, reason: 'capture' }; }
+                const mesh = slDetectGridMesh(frame.data, frame.width, frame.height, rows, cols, opts);
+                if (!mesh) { showHUD('Map faces: grid not found — adjust lighting/aim.'); return { ok: false, reason: 'no-grid' }; }
+                const seg = slSegmentFacesFromGrid(mesh, opts);
+                if (!seg.faces.length) { showHUD('Map faces: no fold detected (looks flat — use Map).'); return { ok: false, reason: 'no-ridge' }; }
+                const res = slCommitFaces(seg.faces, app.sl.Hcp, opts);
+                showHUD(`Mapped ${seg.faces.length} faces + silhouette.`);
+                return { ok: true, mask: res.mask, faces: res.faces, ridge: seg.ridge };
+            } finally {
+                app.sl.flashGrid = null;
+            }
+        }
+
         const YT_W = 640, YT_H = 360;
         function syncDomLayers() {
             const host = document.getElementById('domLayers');
@@ -3804,6 +3999,7 @@
                 id: l.id, type: l.type, name: l.name, mediaId: l.mediaId, mediaName: l.mediaName,
                 enabled: l.enabled, points: l.points.map(p => ({ ...p })),
                 hardness: typeof l.hardness === 'number' ? l.hardness : 1,
+                projective: !!l.projective,
                 physics: serializePhysics(l.physics)
             };
         }
@@ -3813,6 +4009,7 @@
                 id: l.id || uuid(), type: l.type, name: l.name, mediaId: l.mediaId || null, mediaName: l.mediaName || null,
                 enabled: l.enabled !== false, points: (l.points || []).map(p => ({ ...p })),
                 hardness: typeof l.hardness === 'number' ? l.hardness : 1,
+                projective: !!l.projective,
                 physics: l.type === 'physics' ? deserializePhysics(l.physics) : undefined
             };
         }
@@ -5434,6 +5631,11 @@
                 ctx.fillRect(0, 0, w, h);
                 return;
             }
+            if (app.sl.flashGrid) {
+                if (domHost) domHost.style.display = 'none';
+                slDrawGridPattern(ctx, w, h, app.sl.flashGrid.rows, app.sl.flashGrid.cols);
+                return;
+            }
             if (domHost && domHost.style.display === 'none') domHost.style.display = '';
             syncDomLayers();
             if (app.blackout) return;
@@ -5465,7 +5667,9 @@
                     }));
                     
                     const hard = typeof layer.hardness === 'number' ? layer.hardness : 1;
-                    if (hard < 0.995) {
+                    if (layer.projective) {
+                        slWarpImageProjective(ctx, media.element, pts); // pro-mode face: true perspective (ADR 0002)
+                    } else if (hard < 0.995) {
                         renderQuadSoft(ctx, media.element, pts, hard);
                     } else {
                         renderQuad(ctx, media.element, pts);
@@ -6807,6 +7011,7 @@
             document.getElementById('webcamBtn').addEventListener('click', () => addCameraFlow());
             document.getElementById('slCalibrateBtn').addEventListener('click', () => slStartCalibrate());
             document.getElementById('slMapBtn').addEventListener('click', () => slMap());
+            document.getElementById('slFacesBtn').addEventListener('click', () => slMapPro());
             document.getElementById('slUnderlayBtn').addEventListener('click', (e) => {
                 app.sl.underlay = !app.sl.underlay;
                 e.currentTarget.classList.toggle('on', app.sl.underlay);

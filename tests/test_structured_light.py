@@ -313,6 +313,128 @@ async () => {
 """
 
 
+# Pro mode: true projective raster (ADR 0002) keeps interior lines straight.
+JS_PROJECTIVE = """
+() => {
+  const out = {};
+  const quad = [{x:0,y:0},{x:120,y:10},{x:90,y:110},{x:20,y:80}]; // non-affine
+  const H = slQuadHomography(quad);
+  out.hOk = Array.isArray(H) && H.length === 9;
+  const uc = [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
+  out.cornersOk = uc.every((u, i) => {
+    const q = slApplyHomography(H, u.x, u.y);
+    return Math.hypot(q.x - quad[i].x, q.y - quad[i].y) < 1e-6;
+  });
+  const tri = (a, b, c) => Math.abs((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y));
+  // A straight source diagonal maps to a straight line under the homography...
+  const src = [{x:0.2,y:0.1},{x:0.5,y:0.4},{x:0.8,y:0.7}];
+  const d = src.map(p => slApplyHomography(H, p.x, p.y));
+  out.lineStraight = tri(d[0], d[1], d[2]) < 1e-2;
+  // ...but the same diagonal bows under bilinear interpolation (proves it's really projective).
+  const b = src.map(p => bilinearInterp(quad[0], quad[1], quad[2], quad[3], p.x, p.y));
+  out.bilinearBows = tri(b[0], b[1], b[2]) > 0.5;
+  // The projective warp renders onto a canvas without throwing.
+  const cv = document.createElement('canvas'); cv.width = 160; cv.height = 160;
+  const g = cv.getContext('2d');
+  const img = document.createElement('canvas'); img.width = img.height = 32;
+  const ig = img.getContext('2d'); ig.fillStyle = '#4af'; ig.fillRect(0, 0, 32, 32);
+  let threw = false;
+  try { slWarpImageProjective(g, img, quad, 8); } catch (e) { threw = true; }
+  out.rendered = !threw && g.getImageData(40, 40, 1, 1).data[3] > 0;
+  return out;
+}
+"""
+
+
+# Pro mode: ridge detection + face split from a deformed grid mesh (Q13, Q15).
+JS_RIDGE = """
+() => {
+  const out = {};
+  const R = 5, C = 9, ridgeCol = 4;
+  // A tent: each row rises to an apex at ridgeCol then falls -> a sharp fold there.
+  const mesh = [];
+  for (let r = 0; r < R; r++) {
+    const row = [], baseY = r * 12;
+    for (let c = 0; c < C; c++) {
+      const up = c <= ridgeCol ? c * 4 : (C - 1 - c) * 4;
+      row.push({ x: c * 10, y: baseY - up });
+    }
+    mesh.push(row);
+  }
+  const seg = slSegmentFacesFromGrid(mesh, { angleThresh: 0.3 });
+  const same = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-6;
+  out.ridgeLen = Array.isArray(seg.ridge) && seg.ridge.length === R;
+  out.ridgeAtApex = seg.ridge.every((p, r) => same(p, mesh[r][ridgeCol]));
+  out.twoFaces = Array.isArray(seg.faces) && seg.faces.length === 2
+    && seg.faces[0].length === 4 && seg.faces[1].length === 4;
+  const A = seg.faces[0], B = seg.faces[1];
+  // Adjacent faces share the ridge's top and bottom vertices exactly (Q15).
+  out.sharedRidge = same(A[1], B[0]) && same(A[2], B[3])
+    && same(A[1], mesh[0][ridgeCol]) && same(A[2], mesh[R - 1][ridgeCol]);
+
+  // A flat mesh has no fold -> no ridge, no split.
+  const flat = [];
+  for (let r = 0; r < R; r++) { const row = []; for (let c = 0; c < C; c++) row.push({ x: c * 10, y: r * 12 }); flat.push(row); }
+  const seg2 = slSegmentFacesFromGrid(flat, { angleThresh: 0.3 });
+  out.flatNoRidge = seg2.ridge.length === 0 && (!seg2.faces || seg2.faces.length === 0);
+  return out;
+}
+"""
+
+
+# Pro mode: commit faces -> silhouette mask + projective face layers (Q15).
+JS_FACES = """
+async () => {
+  const out = {};
+  const Hcp = slSolveHomography([{x:0,y:0},{x:48,y:0},{x:48,y:36},{x:0,y:36}],
+                                [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]);
+  const ridgeTop = {x:24,y:2}, ridgeBot = {x:24,y:34};
+  const A = [{x:4,y:2}, ridgeTop, ridgeBot, {x:4,y:34}];
+  const B = [ridgeTop, {x:44,y:2}, {x:44,y:34}, ridgeBot];
+  const n0 = app.layers.length;
+  const res = slCommitFaces([A, B], Hcp, {});
+  out.made = !!res && !!res.mask && Array.isArray(res.faces) && res.faces.length === 2;
+  out.layerCount = app.layers.length === n0 + 3;           // 1 mask + 2 faces
+  out.faceProjective = res.faces.every(f => f.type === 'projection' && f.projective === true);
+  out.maskIsMask = res.mask.type === 'mask' && res.mask.points.length === 4;
+  const fA = res.faces[0].points, fB = res.faces[1].points;
+  const same = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-9;
+  out.sharedPct = same(fA[1], fB[0]) && same(fA[2], fB[3]); // ridge vertices identical in %
+  undo();
+  out.undoAll = app.layers.length === n0;                  // one undo removes all three
+  return out;
+}
+"""
+
+
+# Pro mode: grid pattern + detector round-trip on the canvas, and slMapPro guard.
+JS_PROMODE2 = """
+async () => {
+  const out = {};
+  const w = 320, h = 240, rows = 4, cols = 6;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  slDrawGridPattern(g, w, h, rows, cols, { color: '#0f0' });
+  const data = g.getImageData(0, 0, w, h).data;
+
+  const mesh = slDetectGridMesh(data, w, h, rows, cols, {});
+  out.meshDims = !!mesh && mesh.length === rows && mesh.every(r => r.length === cols);
+  out.rowMonotonic = !!mesh && mesh.every(r => r.every((p, j) => j === 0 || p.x > r[j - 1].x));
+  out.colMonotonic = !!mesh && mesh[0].every((_, j) => mesh.every((r, i) => i === 0 || r[j].y > mesh[i - 1][j].y));
+  // Asking for a different count than is present returns null, not a mis-ordered mesh.
+  out.wrongCountNull = slDetectGridMesh(data, w, h, rows, cols + 2, {}) === null;
+
+  out.facesBtn = !!document.getElementById('slFacesBtn');
+
+  // slMapPro refuses without calibration.
+  app.sl.Hcp = null; app.sl.calib = null;
+  const r = await slMapPro({ settleFrames: 2 });
+  out.proGuard = !!r && r.ok === false && r.reason === 'no-calibration';
+  return out;
+}
+"""
+
+
 def main():
     httpd = serve()
     url = f"http://127.0.0.1:{PORT}/index.html"
@@ -386,6 +508,39 @@ def main():
               all(ui.get(k) for k in ["buttons", "underlayOn", "underlayOff", "calibOpen",
                                       "calibFinish", "calibClosed", "calibMapsCentre"]),
               json.dumps(ui))
+
+        try:
+            pj = page.evaluate(JS_PROJECTIVE)
+        except Exception as e:
+            pj = {"error": str(e).splitlines()[0]}
+        check("pro: projective raster keeps interior lines straight (vs bilinear), renders",
+              all(pj.get(k) for k in ["hOk", "cornersOk", "lineStraight", "bilinearBows", "rendered"]),
+              json.dumps(pj))
+
+        try:
+            rg = page.evaluate(JS_RIDGE)
+        except Exception as e:
+            rg = {"error": str(e).splitlines()[0]}
+        check("pro: ridge detection + two faces sharing ridge vertices; flat -> none",
+              all(rg.get(k) for k in ["ridgeLen", "ridgeAtApex", "twoFaces", "sharedRidge", "flatNoRidge"]),
+              json.dumps(rg))
+
+        try:
+            fc = page.evaluate(JS_FACES)
+        except Exception as e:
+            fc = {"error": str(e).splitlines()[0]}
+        check("pro: commit faces -> silhouette mask + projective faces, shared ridge, one undo",
+              all(fc.get(k) for k in ["made", "layerCount", "faceProjective", "maskIsMask", "sharedPct", "undoAll"]),
+              json.dumps(fc))
+
+        try:
+            p2 = page.evaluate(JS_PROMODE2)
+        except Exception as e:
+            p2 = {"error": str(e).splitlines()[0]}
+        check("pro: grid pattern + detector round-trip, Faces button, slMapPro guard",
+              all(p2.get(k) for k in ["meshDims", "rowMonotonic", "colMonotonic", "wrongCountNull",
+                                      "facesBtn", "proGuard"]),
+              json.dumps(p2))
 
         check("no page errors", not errors, json.dumps(errors[:5]))
         browser.close()
