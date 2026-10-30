@@ -1,5 +1,5 @@
 """
-Verify the compiled single file (dist/index.html) is truly offline-capable.
+Verify the compiled single file (index.offline.html) is truly offline-capable.
 
 Builds it, then loads it with ALL non-local network blocked and asserts gifler is
 defined (inlined, not fetched) and the app initialised with no page errors.
