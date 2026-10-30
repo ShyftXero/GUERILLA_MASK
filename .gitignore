@@ -8,4 +8,4 @@ trump_gifs
 archive/*.json
 tests/__pycache__/
 tests/screenshots/
-dist/
+index.offline.html

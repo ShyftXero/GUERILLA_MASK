@@ -10,7 +10,7 @@ NOT spliced into the big inline app script — so it never lands in the middle o
 script block. gifler is only referenced at runtime (GIF playback), long after the
 appended block has parsed, so load order is fine.
 
-Usage:  python3 tools/build_offline.py        (writes dist/index.html)
+Usage:  python3 tools/build_offline.py        (writes index.offline.html)
 Run with -I (isolated) since it reads vendored, third-party text.
 """
 import re
@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "index.html"
 VENDOR = ROOT / "vendor" / "gifler.min.js"
-OUT = ROOT / "dist" / "index.html"
+OUT = ROOT / "index.offline.html"
 
 # Matches the gifler CDN tag regardless of exact version/URL, on its own.
 CDN_TAG = re.compile(r'[ \t]*<script\b[^>]*\bsrc=["\'][^"\']*gifler[^"\']*["\'][^>]*>\s*</script>\s*\n?',
@@ -68,7 +68,6 @@ def main():
     if leftover:
         die(f"external <script src> still present after build: {leftover}")
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
     kb = len(html.encode("utf-8")) / 1024
     print(f"build_offline: wrote {OUT.relative_to(ROOT)} ({kb:.0f} KB) — gifler inlined, no network needed")

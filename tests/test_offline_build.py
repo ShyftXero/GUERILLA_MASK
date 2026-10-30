@@ -35,8 +35,8 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
 
 def main():
     subprocess.run([sys.executable, "-I", str(ROOT / "tools" / "build_offline.py")], check=True)
-    dist = ROOT / "dist" / "index.html"
-    check("dist/index.html built", dist.exists())
+    built = ROOT / "index.offline.html"
+    check("index.offline.html built", built.exists())
 
     os.chdir(ROOT)
     socketserver.ThreadingTCPServer.allow_reuse_address = True
@@ -61,7 +61,7 @@ def main():
                 r.abort()
         page.context.route("**/*", route)
 
-        page.goto(f"http://127.0.0.1:{PORT}/dist/index.html")
+        page.goto(f"http://127.0.0.1:{PORT}/index.offline.html")
         page.wait_for_timeout(1000)
 
         state = page.evaluate("""() => ({
